@@ -327,14 +327,18 @@ function Dashboard() {
                     <option value="4">4 Players</option>
                     <option value="5">5 Players</option>
                     <option value="6">6 Players</option>
+                    <option value="7">7 Players</option>
+                    <option value="8">8 Players</option>
+                    <option value="9">9 Players</option>
+                    <option value="10">10 Players</option>
                   </select>
                 </div>
                 <div className="setting-row">
                   <span>Starting Money</span>
                   <select defaultValue="1500" onChange={() => soundService.playClick()}>
-                    <option value="1000">$1,000</option>
-                    <option value="1500">$1,500</option>
-                    <option value="2000">$2,000</option>
+                    <option value="1000">€1,000</option>
+                    <option value="1500">€1,500</option>
+                    <option value="2000">€2,000</option>
                   </select>
                 </div>
               </div>

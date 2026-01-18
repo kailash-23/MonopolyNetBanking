@@ -825,6 +825,7 @@
   outline: none;
   border-color: #d4a574;
   background: white;
+  box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.15);
 }
 
 .input-hint {
