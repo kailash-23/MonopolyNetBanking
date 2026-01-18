@@ -1,0 +1,305 @@
+/* =====================================================
+   Monopoly NetBanking - Clean & Simple Design
+   ===================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=DM+Sans:wght@400;500&display=swap');
+
+:root {
+  /* Colors */
+  --pink: #ff6b9d;
+  --pink-light: #ffb3c6;
+  --beige: #d4a574;
+  --beige-light: #f5e6d3;
+  --purple: #a594f9;
+  --purple-light: #e5deff;
+  
+  /* Background */
+  --bg-light: #fefefe;
+  --bg-cream: #faf8f5;
+  
+  /* Text */
+  --text-dark: #2d2d3a;
+  --text-medium: #5a5a6e;
+  --text-light: #8e8e9f;
+  
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-cream);
+  color: var(--text-dark);
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Poppins', sans-serif;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Welcome Screen */
+.welcome-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: 2rem;
+  background: 
+    linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(250,248,245,0.9) 100%),
+    url('/images/monopoly-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+/* Copyright Notice */
+.copyright-notice {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--text-light);
+  z-index: 100;
+  max-width: 90%;
+  line-height: 1.5;
+}
+
+.copyright-notice p {
+  margin: 0.25rem 0;
+}
+
+.copyright-notice .trademark {
+  font-weight: 500;
+}
+
+.welcome-screen .gradient-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.welcome-screen .gradient-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.5;
+}
+
+.welcome-screen .gradient-blob--1 {
+  width: 400px;
+  height: 400px;
+  background: var(--pink-light);
+  top: -10%;
+  left: -5%;
+}
+
+.welcome-screen .gradient-blob--2 {
+  width: 350px;
+  height: 350px;
+  background: var(--beige-light);
+  top: 30%;
+  right: -10%;
+}
+
+.welcome-screen .gradient-blob--3 {
+  width: 300px;
+  height: 300px;
+  background: var(--purple-light);
+  bottom: -5%;
+  left: 30%;
+}
+
+.welcome-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  max-width: 400px;
+}
+
+.welcome-logo {
+  font-size: 4rem;
+  margin-bottom: 0.5rem;
+}
+
+.welcome-title {
+  font-family: 'Poppins', sans-serif;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--beige);
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.5px;
+}
+
+.welcome-subtitle {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1rem;
+  color: var(--text-light);
+  margin-bottom: 2.5rem;
+  font-weight: 400;
+}
+
+.welcome-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  width: 100%;
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+.welcome-btn {
+  display: block;
+  padding: 0.9rem 1.5rem;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 10px;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.welcome-btn--primary {
+  background: var(--beige);
+  color: #fff;
+  box-shadow: var(--shadow-md);
+}
+
+.welcome-btn--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(212, 165, 116, 0.35);
+}
+
+.welcome-btn--secondary {
+  background: #fff;
+  color: var(--text-dark);
+  border: 1.5px solid #e8e8ec;
+}
+
+.welcome-btn--secondary:hover {
+  background: #fafafa;
+  border-color: #ddd;
+}
+
+.welcome-disclaimer {
+  position: relative;
+  z-index: 1;
+  margin-top: 3rem;
+  max-width: 380px;
+  text-align: center;
+}
+
+.welcome-disclaimer p {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.7rem;
+  color: var(--text-light);
+  line-height: 1.6;
+  margin-bottom: 0.4rem;
+}
+
+/* Dashboard Screen */
+.dashboard-screen {
+  min-height: 100vh;
+  background: var(--bg-cream);
+  padding: 2rem;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.dashboard-title {
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.dashboard-logout {
+  padding: 0.5rem 1.25rem;
+  background: #fff;
+  border: 1.5px solid #e8e8ec;
+  border-radius: 8px;
+  color: var(--text-medium);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dashboard-logout:hover {
+  background: #fafafa;
+  border-color: #ddd;
+}
+
+.dashboard-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+
+.dashboard-card {
+  background: #fff;
+  border: 1px solid #f0f0f2;
+  border-radius: 14px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-card h3 {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-light);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dashboard-card p {
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--beige);
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+  .welcome-title {
+    font-size: 2rem;
+  }
+  
+  .welcome-logo {
+    font-size: 3rem;
+  }
+  
+  .welcome-subtitle {
+    font-size: 0.9rem;
+  }
+}

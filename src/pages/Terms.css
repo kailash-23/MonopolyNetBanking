@@ -1,0 +1,203 @@
+/* Terms Page - Vintage Beige Theme */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=DM+Sans:wght@400;500&display=swap');
+
+.terms-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: 
+    linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(250,248,245,0.9) 100%),
+    url('/images/monopoly-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  position: relative;
+  overflow-x: hidden;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* Background Blobs */
+.terms-page .bg-blob {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.terms-page .bg-blob--pink {
+  width: 350px;
+  height: 350px;
+  background: #ffb3c6;
+  top: -10%;
+  left: -8%;
+}
+
+.terms-page .bg-blob--beige {
+  width: 300px;
+  height: 300px;
+  background: #f5e6d3;
+  top: 40%;
+  right: -10%;
+}
+
+.terms-page .bg-blob--purple {
+  width: 280px;
+  height: 280px;
+  background: #e5deff;
+  bottom: -5%;
+  left: 20%;
+}
+
+/* Header */
+.terms-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.terms-page .back-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  border: 1px solid #e8e8ec;
+  border-radius: 12px;
+  color: #5a5a6e;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.terms-page .back-btn:hover {
+  background: #f0f0f2;
+  color: #2d2d3a;
+}
+
+.terms-page .header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.terms-page .header-logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.terms-page .header-title {
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #2d2d3a;
+}
+
+.terms-page .header-title span {
+  color: #d4a574;
+}
+
+/* Content */
+.terms-content {
+  flex: 1;
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.terms-page .page-title {
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #2d2d3a;
+  margin: 0 0 8px;
+  text-align: center;
+}
+
+.last-updated {
+  font-size: 0.85rem;
+  color: #9898a8;
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+/* Sections */
+.terms-section {
+  background: white;
+  border: 1px solid #f0f0f2;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.terms-section h2 {
+  font-family: 'Poppins', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2d2d3a;
+  margin: 0 0 12px;
+}
+
+.terms-section p {
+  font-size: 0.9rem;
+  color: #5a5a6e;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.terms-section p:last-child {
+  margin-bottom: 0;
+}
+
+.terms-section ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.terms-section li {
+  font-size: 0.9rem;
+  color: #5a5a6e;
+  line-height: 1.6;
+  margin-bottom: 6px;
+}
+
+.terms-section li:last-child {
+  margin-bottom: 0;
+}
+
+/* Footer */
+.terms-footer {
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.terms-footer p {
+  font-size: 0.7rem;
+  color: #9898a8;
+  margin: 0 0 4px;
+}
+
+/* Responsive */
+@media (min-width: 768px) {
+  .terms-content {
+    max-width: 720px;
+    padding: 32px;
+  }
+  
+  .terms-page .page-title {
+    font-size: 2rem;
+  }
+}

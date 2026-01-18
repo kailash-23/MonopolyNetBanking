@@ -1,0 +1,528 @@
+/* =====================================================
+   Auth Pages - Clean & Simple Design
+   ===================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=DM+Sans:wght@400;500&display=swap');
+
+/* Page Layout */
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: 
+    linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(250,248,245,0.9) 100%),
+    url('/images/monopoly-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  position: relative;
+  overflow: hidden;
+  padding: 2rem 1rem;
+}
+
+/* Background Blobs */
+.bg-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.bg-blob--pink {
+  width: 400px;
+  height: 400px;
+  background: #ffb3c6;
+  top: -12%;
+  left: -8%;
+}
+
+.bg-blob--beige {
+  width: 350px;
+  height: 350px;
+  background: #f5e6d3;
+  top: 35%;
+  right: -12%;
+}
+
+.bg-blob--purple {
+  width: 320px;
+  height: 320px;
+  background: #e5deff;
+  bottom: -8%;
+  left: 25%;
+}
+
+/* =====================================================
+   Welcome Screen (Initial View)
+   ===================================================== */
+
+.welcome-wrapper {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+/* Mr. Monopoly Mascot */
+.welcome-mascot {
+  width: 180px;
+  height: auto;
+  margin-bottom: 6px;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.1));
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+.welcome-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.welcome-brand__name {
+  font-family: 'Poppins', sans-serif;
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #2d2d3a;
+  letter-spacing: -0.5px;
+}
+
+.welcome-brand__name span {
+  color: #d4a574;
+}
+
+.welcome-tagline {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1rem;
+  color: #8e8e9f;
+  margin-bottom: 2.5rem;
+  line-height: 1.5;
+}
+
+.btn-continue {
+  width: 100%;
+  max-width: 280px;
+  padding: 1rem 2rem;
+  font-family: 'Poppins', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background: #d4a574;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+  margin-bottom: 1.5rem;
+}
+
+.btn-continue:hover {
+  background: #c99a69;
+  transform: translateY(-1px);
+}
+
+.welcome-links {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 3rem;
+}
+
+.link-btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  color: #5a5a6e;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.link-btn:hover {
+  color: #d4a574;
+}
+
+.link-divider {
+  color: #ccc;
+  font-size: 0.75rem;
+}
+
+/* =====================================================
+   Auth Form View
+   ===================================================== */
+
+.auth-wrapper {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Back Button */
+.btn-back {
+  position: absolute;
+  top: -2rem;
+  left: 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  color: #5a5a6e;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  transition: color 0.2s ease;
+}
+
+.btn-back:hover {
+  color: #d4a574;
+}
+
+/* Mr. Monopoly Mascot (Auth form) */
+.auth-mascot {
+  width: 60px;
+  height: auto;
+  margin-right: 0.5rem;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.1));
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+/* Brand/Logo */
+.auth-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  width: 100%;
+}
+
+.auth-brand__name {
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2d2d3a;
+  letter-spacing: -0.3px;
+}
+
+.auth-brand__name span {
+  color: #d4a574;
+}
+
+/* Card */
+.auth-card {
+  width: 100%;
+  background: #fff;
+  border: 1px solid #f0f0f2;
+  border-radius: 16px;
+  padding: 2rem 1.75rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+.auth-card__heading {
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #2d2d3a;
+  text-align: center;
+  margin-bottom: 0.25rem;
+}
+
+.auth-card__subheading {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  color: #8e8e9f;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+/* Alerts */
+.alert {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  margin-bottom: 1.25rem;
+  text-align: center;
+}
+
+.alert--success {
+  background: #e8f5e9;
+  border: 1px solid #c8e6c9;
+  color: #2e7d32;
+}
+
+.alert--error {
+  background: #ffebee;
+  border: 1px solid #ffcdd2;
+  color: #c62828;
+}
+
+/* Form */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+}
+
+.field__label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #5a5a6e;
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.field__input {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.95rem;
+  color: #2d2d3a;
+  background: #fafafa;
+  border: 1.5px solid #e8e8ec;
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.field__input::placeholder {
+  color: #b0b0bc;
+}
+
+.field__input:hover {
+  background: #f5f5f7;
+}
+
+.field__input:focus {
+  background: #fff;
+  border-color: #d4a574;
+}
+
+.field__input--error {
+  border-color: #e57373;
+  background: #fff5f5;
+}
+
+.field__error {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.75rem;
+  color: #e53935;
+  margin-top: 0.35rem;
+}
+
+/* Primary Button */
+.btn-primary {
+  width: 100%;
+  padding: 0.9rem;
+  margin-top: 0.5rem;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  background: #d4a574;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #c99a69;
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  background: #d4c4b0;
+  cursor: not-allowed;
+}
+
+/* Divider */
+.divider {
+  display: flex;
+  align-items: center;
+  margin: 1.5rem 0;
+  gap: 0.75rem;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e8e8ec;
+}
+
+.divider span {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  color: #9898a8;
+}
+
+/* Social Buttons */
+.social-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.social-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.5rem;
+  background: #fff;
+  border: 1.5px solid #e8e8ec;
+  border-radius: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #5a5a6e;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.social-btn:hover {
+  background: #fafafa;
+  border-color: #ddd;
+}
+
+.social-btn svg {
+  flex-shrink: 0;
+}
+
+/* Auth Switch Link */
+.auth-switch {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  color: #8e8e9f;
+  text-align: center;
+  margin-top: 1.5rem;
+}
+
+.auth-switch a {
+  color: #d4a574;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.auth-switch a:hover {
+  text-decoration: underline;
+}
+
+/* Disclaimer */
+.disclaimer {
+  margin-top: 1.75rem;
+  text-align: center;
+  max-width: 360px;
+}
+
+.disclaimer p {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.7rem;
+  color: #9898a8;
+  line-height: 1.5;
+  margin-bottom: 0.3rem;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .auth-card {
+    padding: 1.75rem 1.25rem;
+    border-radius: 14px;
+  }
+
+  .auth-card__heading {
+    font-size: 1.25rem;
+  }
+
+  .auth-brand__name {
+    font-size: 1.35rem;
+  }
+
+  .welcome-brand__name {
+    font-size: 1.85rem;
+  }
+
+  .welcome-brand__icon {
+    font-size: 2.5rem;
+  }
+
+  .bg-blob--pink {
+    width: 300px;
+    height: 300px;
+  }
+
+  .bg-blob--beige {
+    width: 260px;
+    height: 260px;
+  }
+
+  .bg-blob--purple {
+    width: 240px;
+    height: 240px;
+  }
+
+  .social-btn span {
+    display: none;
+  }
+
+  .social-btn {
+    padding: 0.75rem;
+  }
+}
+
+/* Focus States */
+.field__input:focus-visible,
+.btn-primary:focus-visible,
+.btn-continue:focus-visible,
+.social-btn:focus-visible {
+  outline: 2px solid #d4a574;
+  outline-offset: 2px;
+}
+
+/* Auth Loading */
+.auth-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.auth-loading .welcome-mascot {
+  width: 120px;
+  animation: bounce 1s ease-in-out infinite;
+}
+
+.auth-loading p {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1rem;
+  color: #8e8e9f;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
