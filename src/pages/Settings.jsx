@@ -61,24 +61,48 @@ const Settings = () => {
   };
 
   const saveProfile = async () => {
-    if (!profileData.username.trim() || !profileData.displayName.trim()) {
-      showMessage('error', 'Username and Display Name are required');
+    // Validate username
+    if (!profileData.username.trim()) {
+      showMessage('error', 'Username is required');
+      return;
+    }
+    
+    if (profileData.username.trim().length < 3) {
+      showMessage('error', 'Username must be at least 3 characters');
+      return;
+    }
+    
+    if (profileData.username.trim().length > 20) {
+      showMessage('error', 'Username cannot exceed 20 characters');
+      return;
+    }
+    
+    if (!/^[a-zA-Z0-9_]+$/.test(profileData.username.trim())) {
+      showMessage('error', 'Username can only contain letters, numbers, and underscores');
+      return;
+    }
+
+    if (!profileData.displayName.trim()) {
+      showMessage('error', 'Display Name is required');
       return;
     }
 
     setLoading(true);
     try {
       const response = await authService.updateProfile({
-        username: profileData.username,
-        displayName: profileData.displayName
+        username: profileData.username.trim().toLowerCase(),
+        displayName: profileData.displayName.trim()
       });
       if (response.success) {
+        soundService.playSuccess();
         showMessage('success', 'Profile updated successfully!');
       } else {
+        soundService.playError();
         showMessage('error', response.message || 'Failed to update profile');
       }
     } catch (error) {
-      showMessage('error', 'Failed to update profile');
+      soundService.playError();
+      showMessage('error', error.message || 'Failed to update profile');
     } finally {
       setLoading(false);
     }
@@ -154,16 +178,17 @@ const Settings = () => {
       <div className="bg-blob bg-blob--beige"></div>
       <div className="bg-blob bg-blob--purple"></div>
 
-      {/* Floating Back Button */}
-      <button className="floating-back-btn" onClick={() => navigate('/dashboard')}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M19 12H5M12 19l-7-7 7-7"/>
-        </svg>
-      </button>
-
       {/* Content */}
       <main className="settings-content">
-        <h1 className="page-title">Settings</h1>
+        {/* Header with Back Button */}
+        <div className="page-header">
+          <button className="back-btn" onClick={() => { soundService.playNavigate(); navigate('/dashboard'); }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+          </button>
+          <h1 className="page-title">Settings</h1>
+        </div>
 
         {/* Message Banner */}
         {message.text && (

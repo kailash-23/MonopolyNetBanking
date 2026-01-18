@@ -149,16 +149,17 @@ const Friends = () => {
       <div className="bg-blob bg-blob--beige"></div>
       <div className="bg-blob bg-blob--purple"></div>
 
-      {/* Back Button */}
-      <button className="floating-back-btn" onClick={() => { soundService.playNavigate(); navigate('/dashboard'); }}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M19 12H5M12 19l-7-7 7-7"/>
-        </svg>
-      </button>
-
       {/* Content */}
       <main className="friends-content">
-        <h1 className="page-title">Friends</h1>
+        {/* Header with Back Button */}
+        <div className="page-header">
+          <button className="back-btn" onClick={() => { soundService.playNavigate(); navigate('/dashboard'); }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+          </button>
+          <h1 className="page-title">Friends</h1>
+        </div>
 
         {/* Message Banner */}
         {message.text && (

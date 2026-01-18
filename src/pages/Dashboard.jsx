@@ -240,9 +240,10 @@ function Dashboard() {
                     ) : (
                       <span>{getInitials(friend.displayName || friend.username)}</span>
                     )}
-                    <div className={`online-indicator ${Math.random() > 0.5 ? 'online' : 'offline'}`}></div>
+                    <div className={`online-indicator ${friend.isOnline ? 'online' : friend.inGame ? 'in-game' : 'offline'}`}></div>
                   </div>
                   <span className="friend-name-mini">{friend.displayName || friend.username}</span>
+                  {friend.inGame && <span className="in-game-badge">In Game</span>}
                 </div>
               ))}
             </div>
