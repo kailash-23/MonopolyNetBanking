@@ -4,7 +4,9 @@
  * Handles authentication operations with the backend API.
  */
 
-const API_URL = "http://localhost:4000/api/auth";
+// Use environment variable for API URL, fallback to localhost for development
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_URL = `${API_BASE}/api/auth`;
 
 /**
  * Authentication service object
@@ -356,7 +358,7 @@ export const authService = {
   async getFriends() {
     const token = this.getToken();
     
-    const response = await fetch(`http://localhost:4000/api/friends/list`, {
+    const response = await fetch(`${API_BASE}/api/friends/list`, {
       headers: {
         "Authorization": `Bearer ${token}`,
       },
@@ -379,7 +381,7 @@ export const authService = {
   async searchUsers(query) {
     const token = this.getToken();
     
-    const response = await fetch(`http://localhost:4000/api/friends/search?query=${encodeURIComponent(query)}`, {
+    const response = await fetch(`${API_BASE}/api/friends/search?query=${encodeURIComponent(query)}`, {
       headers: {
         "Authorization": `Bearer ${token}`,
       },
@@ -402,7 +404,7 @@ export const authService = {
   async sendFriendRequest(targetUserId) {
     const token = this.getToken();
     
-    const response = await fetch(`http://localhost:4000/api/friends/request`, {
+    const response = await fetch(`${API_BASE}/api/friends/request`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -428,7 +430,7 @@ export const authService = {
   async acceptFriendRequest(requesterId) {
     const token = this.getToken();
     
-    const response = await fetch(`http://localhost:4000/api/friends/accept`, {
+    const response = await fetch(`${API_BASE}/api/friends/accept`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -454,7 +456,7 @@ export const authService = {
   async rejectFriendRequest(requesterId) {
     const token = this.getToken();
     
-    const response = await fetch(`http://localhost:4000/api/friends/reject`, {
+    const response = await fetch(`${API_BASE}/api/friends/reject`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -480,7 +482,7 @@ export const authService = {
   async cancelFriendRequest(targetUserId) {
     const token = this.getToken();
     
-    const response = await fetch(`http://localhost:4000/api/friends/cancel`, {
+    const response = await fetch(`${API_BASE}/api/friends/cancel`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -506,7 +508,7 @@ export const authService = {
   async removeFriend(friendId) {
     const token = this.getToken();
     
-    const response = await fetch(`http://localhost:4000/api/friends/remove`, {
+    const response = await fetch(`${API_BASE}/api/friends/remove`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
