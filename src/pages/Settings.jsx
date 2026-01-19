@@ -202,8 +202,8 @@ const Settings = () => {
           <h2>Profile</h2>
           
           <div className="profile-preview">
-            {user.avatar ? (
-              <img src={user.avatar} alt="Avatar" className="preview-avatar" />
+            {(user.avatar && user.avatar.trim()) || (user.picture && user.picture.trim()) ? (
+              <img src={user.avatar || user.picture} alt="Avatar" className="preview-avatar" />
             ) : (
               <div className="preview-avatar-fallback">
                 {(user.displayName || user.username || 'U')[0].toUpperCase()}
