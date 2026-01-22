@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { soundService } from '../services/soundService';
+import * as gameService from '../services/gameService';
 import mrMonopolyImg from '../mrMonopoly.png';
 import './Dashboard.css';
 
@@ -20,12 +21,18 @@ function Dashboard() {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [selectedEdition, setSelectedEdition] = useState('deluxe');
   const [gameCode, setGameCode] = useState('');
+  const [gameName, setGameName] = useState('');
+  const [maxPlayers, setMaxPlayers] = useState(4);
+  const [startingBalance, setStartingBalance] = useState(1500);
   const [stats, setStats] = useState(null);
   const [gameHistory, setGameHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pendingRequests, setPendingRequests] = useState(0);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [friends, setFriends] = useState([]);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const [error, setError] = useState('');
 
   // Load stats from MongoDB
   useEffect(() => {
@@ -87,6 +94,84 @@ function Dashboard() {
     authService.signOut();
     navigate('/');
   };
+
+  const handleCreateGame = async () => {
+    const finalGameName = gameName.trim() || 'My Monopoly Game';
+    
+    try {
+      setIsCreating(true);
+      setError('');
+      soundService.playGameStart();
+      
+      const data = await gameService.createGame({
+        name: finalGameName,
+        maxPlayers,
+        startingBalance,
+      });
+      
+      setShowHostModal(false);
+      setGameName('');
+      navigate(`/lobby/${data.game.code}`, { state: { game: data.game } });
+    } catch (err) {
+      setError(err.message);
+      soundService.playClick();
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleJoinGame = async () => {
+    if (gameCode.length !== 6) {
+      setError('Please enter a valid 6-character code');
+      return;
+    }
+    
+    try {
+      setIsJoining(true);
+      setError('');
+      soundService.playSuccess();
+      
+      const data = await gameService.joinGame(gameCode);
+      
+      setShowJoinModal(false);
+      setGameCode('');
+      
+      // Navigate to lobby or game depending on status
+      if (data.game.status === 'waiting') {
+        navigate(`/lobby/${data.game.code}`, { state: { game: data.game } });
+      } else {
+        navigate(`/game/${data.game.code}`, { state: { game: data.game } });
+      }
+    } catch (err) {
+      setError(err.message);
+      soundService.playClick();
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
+  // Check for active game on load
+  useEffect(() => {
+    const checkActiveGame = async () => {
+      try {
+        const data = await gameService.getActiveGame();
+        if (data.game) {
+          // User has an active game, offer to rejoin
+          if (data.game.status === 'waiting') {
+            navigate(`/lobby/${data.game.code}`, { state: { game: data.game } });
+          } else if (data.game.status === 'in_progress') {
+            navigate(`/game/${data.game.code}`, { state: { game: data.game } });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check active game:', err);
+      }
+    };
+    
+    if (user) {
+      checkActiveGame();
+    }
+  }, [user, navigate]);
 
   return (
     <div className="dashboard">
@@ -294,13 +379,24 @@ function Dashboard() {
 
       {/* Host Game Modal */}
       {showHostModal && (
-        <div className="modal-overlay" onClick={() => { soundService.playModalClose(); setShowHostModal(false); }}>
+        <div className="modal-overlay" onClick={() => { soundService.playModalClose(); setShowHostModal(false); setError(''); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Host a Game</h2>
-              <button className="modal-close" onClick={() => { soundService.playModalClose(); setShowHostModal(false); }}>×</button>
+              <button className="modal-close" onClick={() => { soundService.playModalClose(); setShowHostModal(false); setError(''); }}>×</button>
             </div>
             <div className="modal-body">
+              <div className="form-group">
+                <label>Game Name</label>
+                <input
+                  type="text"
+                  className="game-name-input"
+                  placeholder="My Monopoly Game"
+                  value={gameName}
+                  onChange={(e) => setGameName(e.target.value)}
+                  maxLength={30}
+                />
+              </div>
               <div className="form-group">
                 <label>Select Edition</label>
                 <div className="edition-grid">
@@ -321,7 +417,7 @@ function Dashboard() {
                 <label>Room Settings</label>
                 <div className="setting-row">
                   <span>Max Players</span>
-                  <select defaultValue="4" onChange={() => soundService.playClick()}>
+                  <select value={maxPlayers} onChange={(e) => { soundService.playClick(); setMaxPlayers(parseInt(e.target.value)); }}>
                     <option value="2">2 Players</option>
                     <option value="3">3 Players</option>
                     <option value="4">4 Players</option>
@@ -329,23 +425,25 @@ function Dashboard() {
                     <option value="6">6 Players</option>
                     <option value="7">7 Players</option>
                     <option value="8">8 Players</option>
-                    <option value="9">9 Players</option>
-                    <option value="10">10 Players</option>
                   </select>
                 </div>
                 <div className="setting-row">
                   <span>Starting Money</span>
-                  <select defaultValue="1500" onChange={() => soundService.playClick()}>
-                    <option value="1000">€1,000</option>
-                    <option value="1500">€1,500</option>
-                    <option value="2000">€2,000</option>
+                  <select value={startingBalance} onChange={(e) => { soundService.playClick(); setStartingBalance(parseInt(e.target.value)); }}>
+                    <option value="1000">$1,000</option>
+                    <option value="1500">$1,500</option>
+                    <option value="2000">$2,000</option>
+                    <option value="2500">$2,500</option>
                   </select>
                 </div>
               </div>
+              {error && <div className="modal-error">{error}</div>}
             </div>
             <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => { soundService.playClick(); setShowHostModal(false); }}>Cancel</button>
-              <button className="btn-primary" onClick={() => soundService.playGameStart()}>Create Game</button>
+              <button className="btn-secondary" onClick={() => { soundService.playClick(); setShowHostModal(false); setError(''); }}>Cancel</button>
+              <button className="btn-primary" onClick={handleCreateGame} disabled={isCreating}>
+                {isCreating ? 'Creating...' : 'Create Game'}
+              </button>
             </div>
           </div>
         </div>
@@ -353,11 +451,11 @@ function Dashboard() {
 
       {/* Join Game Modal */}
       {showJoinModal && (
-        <div className="modal-overlay" onClick={() => { soundService.playModalClose(); setShowJoinModal(false); }}>
+        <div className="modal-overlay" onClick={() => { soundService.playModalClose(); setShowJoinModal(false); setError(''); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Join a Game</h2>
-              <button className="modal-close" onClick={() => { soundService.playModalClose(); setShowJoinModal(false); }}>×</button>
+              <button className="modal-close" onClick={() => { soundService.playModalClose(); setShowJoinModal(false); setError(''); }}>×</button>
             </div>
             <div className="modal-body">
               <div className="form-group">
@@ -367,15 +465,18 @@ function Dashboard() {
                   className="game-code-input"
                   placeholder="XXXXXX"
                   value={gameCode}
-                  onChange={(e) => setGameCode(e.target.value.toUpperCase().slice(0, 6))}
+                  onChange={(e) => setGameCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
                   maxLength={6}
                 />
                 <p className="input-hint">Ask the host for the 6-character code</p>
               </div>
+              {error && <div className="modal-error">{error}</div>}
             </div>
             <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => { soundService.playClick(); setShowJoinModal(false); }}>Cancel</button>
-              <button className="btn-primary" disabled={gameCode.length !== 6} onClick={() => soundService.playSuccess()}>Join Game</button>
+              <button className="btn-secondary" onClick={() => { soundService.playClick(); setShowJoinModal(false); setError(''); }}>Cancel</button>
+              <button className="btn-primary" disabled={gameCode.length !== 6 || isJoining} onClick={handleJoinGame}>
+                {isJoining ? 'Joining...' : 'Join Game'}
+              </button>
             </div>
           </div>
         </div>

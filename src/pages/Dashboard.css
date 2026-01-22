@@ -808,12 +808,13 @@
   background: #fafafa;
   border: 2px solid #e8e8ec;
   border-radius: 12px;
-  color: #2d2d3a;
+  color: #2d2d3a !important;
   font-size: 1.5rem;
   font-weight: 600;
   text-align: center;
   letter-spacing: 8px;
   transition: all 0.2s ease;
+  -webkit-text-fill-color: #2d2d3a;
 }
 
 .game-code-input::placeholder {
@@ -826,6 +827,40 @@
   border-color: #d4a574;
   background: white;
   box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.15);
+}
+
+.game-name-input {
+  width: 100%;
+  padding: 14px 16px;
+  background: #fafafa;
+  border: 2px solid #e8e8ec;
+  border-radius: 12px;
+  color: #2d2d3a !important;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  -webkit-text-fill-color: #2d2d3a;
+}
+
+.game-name-input::placeholder {
+  color: #c0c0c8;
+}
+
+.game-name-input:focus {
+  outline: none;
+  border-color: #d4a574;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.15);
+}
+
+.modal-error {
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 0.9rem;
+  text-align: center;
 }
 
 .input-hint {

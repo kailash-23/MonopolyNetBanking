@@ -5,6 +5,8 @@ import Dashboard from './pages/Dashboard';
 import ProfileSetup from './pages/ProfileSetup';
 import Settings from './pages/Settings';
 import Terms from './pages/Terms';
+import GameLobby from './pages/GameLobby';
+import GameSession from './pages/GameSession';
 import './styles/index.css';
 
 function App() {
@@ -18,6 +20,8 @@ function App() {
       <Route path="/settings" element={<Settings />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/friends" element={<Friends />} />
+      <Route path="/lobby/:code" element={<GameLobby />} />
+      <Route path="/game/:code" element={<GameSession />} />
     </Routes>
   );
 }

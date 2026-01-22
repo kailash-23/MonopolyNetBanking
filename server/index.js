@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import { connectDB } from "./config/db.js";
 import authRoutes from "./routes/auth.js";
 import friendsRoutes from "./routes/friends.js";
+import gamesRoutes from "./routes/games.js";
 
 // Get directory name for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -32,6 +33,7 @@ app.use(express.json());
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/friends", friendsRoutes);
+app.use("/api/games", gamesRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend running");
