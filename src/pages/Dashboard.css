@@ -264,10 +264,14 @@
   font-weight: 600;
   color: #2d2d3a;
   margin: 0 0 4px;
+  word-break: keep-all;
+  overflow-wrap: normal;
 }
 
 .welcome-section h1 span {
   color: #d4a574;
+  display: inline;
+  white-space: nowrap;
 }
 
 .welcome-section p {
@@ -515,6 +519,28 @@
 
 .online-indicator.offline {
   background: #9e9e9e;
+}
+
+.online-indicator.in-game {
+  background: #ff9800;
+}
+
+.in-game-badge {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ff9800;
+  color: white;
+  font-size: 0.55rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.friend-item-mini {
+  position: relative;
 }
 
 .friend-name-mini {

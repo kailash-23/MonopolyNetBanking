@@ -51,11 +51,27 @@
   left: 20%;
 }
 
-/* Floating Back Button */
-.floating-back-btn {
-  position: fixed;
-  top: 20px;
-  left: 20px;
+/* Content */
+.friends-content {
+  flex: 1;
+  max-width: 480px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 20px;
+  padding-top: 40px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Page Header with Back Button */
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.back-btn {
   width: 44px;
   height: 44px;
   display: flex;
@@ -68,25 +84,13 @@
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 2px 12px rgba(212, 165, 116, 0.25);
-  z-index: 150;
+  flex-shrink: 0;
 }
 
-.floating-back-btn:hover {
+.back-btn:hover {
   background: #d4a574;
   color: white;
   transform: scale(1.05);
-}
-
-/* Content */
-.friends-content {
-  flex: 1;
-  max-width: 480px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 24px 20px;
-  padding-top: 80px;
-  position: relative;
-  z-index: 1;
 }
 
 .page-title {
@@ -94,8 +98,7 @@
   font-size: 1.5rem;
   font-weight: 600;
   color: #2d2d3a;
-  margin: 0 0 20px;
-  text-align: center;
+  margin: 0;
 }
 
 /* Message Banner */

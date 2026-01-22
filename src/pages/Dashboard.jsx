@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { soundService } from '../services/soundService';
@@ -17,6 +17,10 @@ const monopolyEditions = [
 function Dashboard() {
   const navigate = useNavigate();
   const user = authService.getCurrentUser();
+  
+  // Get user avatar - check for valid URL
+  const userAvatar = (user?.avatar && user.avatar.trim()) || (user?.picture && user.picture.trim()) || null;
+  
   const [showHostModal, setShowHostModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [selectedEdition, setSelectedEdition] = useState('deluxe');
@@ -181,28 +185,28 @@ function Dashboard() {
       <div className="bg-blob bg-blob--purple"></div>
 
       {/* Floating Profile Button */}
-      <div className="profile-wrapper">
+      <div className="profile-wrapper" ref={profileMenuRef}>
         <button 
           className="profile-btn" 
           onClick={() => { soundService.playClick(); setShowProfileMenu(!showProfileMenu); }}
         >
-          {user.avatar ? (
-            <img src={user.avatar} alt="Profile" className="profile-avatar" />
+          {userAvatar ? (
+            <img src={userAvatar} alt="Profile" className="profile-avatar" />
           ) : (
-            <div className="profile-avatar-fallback">{getInitials(user.displayName)}</div>
+            <div className="profile-avatar-fallback">{getInitials(user.displayName || user.username)}</div>
           )}
         </button>
         
         {showProfileMenu && (
           <div className="profile-menu">
             <div className="profile-menu-header">
-              {user.avatar ? (
-                <img src={user.avatar} alt="" className="menu-avatar" />
+              {userAvatar ? (
+                <img src={userAvatar} alt="" className="menu-avatar" />
               ) : (
-                <div className="menu-avatar-fallback">{getInitials(user.displayName)}</div>
+                <div className="menu-avatar-fallback">{getInitials(user.displayName || user.username)}</div>
               )}
               <div className="menu-user-info">
-                <span className="menu-display-name">{user.displayName}</span>
+                <span className="menu-display-name">{user.displayName || user.username}</span>
                 <span className="menu-uid">UID: {user.uid}</span>
               </div>
             </div>
@@ -317,19 +321,23 @@ function Dashboard() {
           </div>
           {friends.length > 0 ? (
             <div className="friends-list-mini">
-              {friends.slice(0, 5).map((friend, index) => (
+              {friends.slice(0, 5).map((friend, index) => {
+                const friendAvatar = (friend.avatar && friend.avatar.trim()) || (friend.picture && friend.picture.trim()) || null;
+                return (
                 <div key={friend._id || index} className="friend-item-mini">
                   <div className="friend-avatar-mini">
-                    {friend.avatar ? (
-                      <img src={friend.avatar} alt="" />
+                    {friendAvatar ? (
+                      <img src={friendAvatar} alt="" />
                     ) : (
                       <span>{getInitials(friend.displayName || friend.username)}</span>
                     )}
-                    <div className={`online-indicator ${Math.random() > 0.5 ? 'online' : 'offline'}`}></div>
+                    <div className={`online-indicator ${friend.isOnline ? 'online' : friend.inGame ? 'in-game' : 'offline'}`}></div>
                   </div>
                   <span className="friend-name-mini">{friend.displayName || friend.username}</span>
+                  {friend.inGame && <span className="in-game-badge">In Game</span>}
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="empty-friends">

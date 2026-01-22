@@ -1,23 +1,68 @@
-/* Profile Setup Page */
+/* Profile Setup Page - Vintage Beige Theme */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=DM+Sans:wght@400;500&display=swap');
+
 .profile-setup {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  background: 
+    linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(250,248,245,0.9) 100%),
+    url('/images/monopoly-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
   padding: 20px;
-  font-family: 'DM Sans', 'Poppins', sans-serif;
+  font-family: 'DM Sans', sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Background Blobs */
+.profile-setup .bg-blob {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.profile-setup .bg-blob--pink {
+  width: 350px;
+  height: 350px;
+  background: #ffb3c6;
+  top: -10%;
+  left: -8%;
+}
+
+.profile-setup .bg-blob--beige {
+  width: 300px;
+  height: 300px;
+  background: #f5e6d3;
+  top: 40%;
+  right: -10%;
+}
+
+.profile-setup .bg-blob--purple {
+  width: 280px;
+  height: 280px;
+  background: #e5deff;
+  bottom: -5%;
+  left: 20%;
 }
 
 .profile-setup-container {
   width: 100%;
   max-width: 420px;
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: white;
+  border: 1px solid #f0f0f2;
   border-radius: 24px;
   padding: 40px;
   text-align: center;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  position: relative;
+  z-index: 1;
 }
 
 .setup-header {
@@ -32,14 +77,15 @@
 }
 
 .setup-header h1 {
-  color: white;
+  font-family: 'Poppins', sans-serif;
+  color: #2d2d3a;
   font-size: 24px;
   font-weight: 600;
   margin: 0 0 8px;
 }
 
 .setup-header p {
-  color: rgba(255, 255, 255, 0.6);
+  color: #8e8e9f;
   font-size: 14px;
   margin: 0;
 }
@@ -51,8 +97,8 @@
   margin: 0 auto 24px;
   border-radius: 50%;
   overflow: hidden;
-  border: 3px solid rgba(0, 217, 165, 0.3);
-  box-shadow: 0 8px 30px rgba(0, 217, 165, 0.2);
+  border: 3px solid #d4a574;
+  box-shadow: 0 8px 30px rgba(212, 165, 116, 0.25);
 }
 
 .avatar-image {
@@ -64,7 +110,7 @@
 .avatar-placeholder {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #00d9a5 0%, #00b388 100%);
+  background: linear-gradient(135deg, #d4a574 0%, #c99a69 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -84,7 +130,7 @@
 
 .form-group label {
   display: block;
-  color: white;
+  color: #2d2d3a;
   font-size: 14px;
   font-weight: 500;
   margin-bottom: 8px;
@@ -93,30 +139,33 @@
 .form-group input {
   width: 100%;
   padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  background: #fafafa;
+  border: 2px solid #e8e8ec;
   border-radius: 12px;
-  color: white;
+  color: #2d2d3a;
   font-size: 16px;
   transition: all 0.2s ease;
 }
 
 .form-group input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
+  color: #b0b0bc;
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: rgba(0, 217, 165, 0.5);
-  background: rgba(255, 255, 255, 0.1);
+  border-color: #d4a574;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.15);
 }
 
 .form-group input.valid {
-  border-color: rgba(0, 217, 165, 0.6);
+  border-color: #4CAF50;
+  background: #f8fdf8;
 }
 
 .form-group input.invalid {
-  border-color: rgba(255, 107, 107, 0.6);
+  border-color: #e74c3c;
+  background: #fef8f8;
 }
 
 .input-with-status {
@@ -132,7 +181,7 @@
   right: 14px;
   top: 50%;
   transform: translateY(-50%);
-  color: rgba(255, 255, 255, 0.5);
+  color: #8e8e9f;
   animation: spin 1s linear infinite;
   font-size: 18px;
 }
@@ -151,39 +200,40 @@
 }
 
 .status-icon.valid {
-  color: #00d9a5;
+  color: #4CAF50;
 }
 
 .status-icon.invalid {
-  color: #ff6b6b;
+  color: #e74c3c;
 }
 
 .input-hint {
   display: block;
   font-size: 12px;
   margin-top: 6px;
+  font-weight: 500;
 }
 
 .input-hint.valid {
-  color: #00d9a5;
+  color: #4CAF50;
 }
 
 .input-hint.invalid {
-  color: #ff6b6b;
+  color: #e74c3c;
 }
 
 .input-helper {
   display: block;
-  color: rgba(255, 255, 255, 0.4);
+  color: #8e8e9f;
   font-size: 12px;
   margin-top: 4px;
 }
 
 /* Error Message */
 .error-message {
-  background: rgba(255, 107, 107, 0.15);
-  border: 1px solid rgba(255, 107, 107, 0.3);
-  color: #ff6b6b;
+  background: #ffebee;
+  border: 1px solid #ffcdd2;
+  color: #c62828;
   padding: 12px 16px;
   border-radius: 10px;
   font-size: 13px;
@@ -194,20 +244,21 @@
 .submit-btn {
   width: 100%;
   padding: 16px;
-  background: linear-gradient(135deg, #00d9a5 0%, #00b388 100%);
+  background: linear-gradient(135deg, #d4a574 0%, #c99a69 100%);
   border: none;
   border-radius: 12px;
   color: white;
+  font-family: 'Poppins', sans-serif;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 8px 25px rgba(0, 217, 165, 0.3);
+  box-shadow: 0 8px 25px rgba(212, 165, 116, 0.35);
 }
 
 .submit-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 12px 35px rgba(0, 217, 165, 0.4);
+  box-shadow: 0 12px 35px rgba(212, 165, 116, 0.45);
 }
 
 .submit-btn:disabled {
@@ -217,7 +268,7 @@
 
 /* Setup Note */
 .setup-note {
-  color: rgba(255, 255, 255, 0.4);
+  color: #8e8e9f;
   font-size: 12px;
   margin: 20px 0 0;
   text-align: center;

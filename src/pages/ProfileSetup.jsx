@@ -87,6 +87,11 @@ function ProfileSetup() {
 
   return (
     <div className="profile-setup">
+      {/* Background Blobs */}
+      <div className="bg-blob bg-blob--pink"></div>
+      <div className="bg-blob bg-blob--beige"></div>
+      <div className="bg-blob bg-blob--purple"></div>
+
       <div className="profile-setup-container">
         <div className="setup-header">
           <img src={mrMonopolyImg} alt="Mr. Monopoly" className="setup-mascot" />
