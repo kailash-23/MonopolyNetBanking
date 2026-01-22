@@ -17,6 +17,7 @@ const monopolyEditions = [
 function Dashboard() {
   const navigate = useNavigate();
   const user = authService.getCurrentUser();
+  const profileMenuRef = useRef(null);
   
   // Get user avatar - check for valid URL
   const userAvatar = (user?.avatar && user.avatar.trim()) || (user?.picture && user.picture.trim()) || null;
