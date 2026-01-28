@@ -39,6 +39,25 @@ function Dashboard() {
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState('');
 
+  // Close profile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    if (showProfileMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showProfileMenu]);
+
   // Load stats from MongoDB
   useEffect(() => {
     const loadStats = async () => {
@@ -192,10 +211,9 @@ function Dashboard() {
           onClick={() => { soundService.playClick(); setShowProfileMenu(!showProfileMenu); }}
         >
           {userAvatar ? (
-            <img src={userAvatar} alt="Profile" className="profile-avatar" />
-          ) : (
-            <div className="profile-avatar-fallback">{getInitials(user.displayName || user.username)}</div>
-          )}
+            <img src={userAvatar} alt="" className="profile-avatar" onError={(e) => e.target.style.display = 'none'} />
+          ) : null}
+          <div className="profile-avatar-fallback">{getInitials(user.displayName || user.username)}</div>
         </button>
         
         {showProfileMenu && (

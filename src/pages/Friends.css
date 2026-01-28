@@ -3,14 +3,13 @@
 
 .friends-page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: 
     linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(250,248,245,0.9) 100%),
-    url('/images/monopoly-bg.jpg');
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
+    url('/images/monopoly-bg.jpg') center/cover no-repeat fixed;
+  background-color: #faf8f5;
   position: relative;
   overflow-x: hidden;
   font-family: 'DM Sans', sans-serif;
@@ -72,8 +71,8 @@
 }
 
 .back-btn {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -81,16 +80,23 @@
   border: 2px solid #d4a574;
   border-radius: 50%;
   color: #d4a574;
+  font-size: 20px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 2px 12px rgba(212, 165, 116, 0.25);
   flex-shrink: 0;
+  line-height: 1;
 }
 
 .back-btn:hover {
   background: #d4a574;
   color: white;
   transform: scale(1.05);
+}
+
+.back-btn:active {
+  transform: scale(0.95);
 }
 
 .page-title {
@@ -495,12 +501,32 @@
 
 /* Responsive */
 @media (max-width: 480px) {
+  .friends-content {
+    padding: 16px;
+    padding-top: 24px;
+  }
+
+  .page-header {
+    margin-bottom: 16px;
+  }
+
+  .page-title {
+    font-size: 1.25rem;
+  }
+
+  .back-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
   .friends-tabs {
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    padding: 4px;
   }
   
   .friends-tabs::-webkit-scrollbar {
@@ -510,6 +536,7 @@
   .tab-btn {
     white-space: nowrap;
     padding: 10px 12px;
+    font-size: 0.8rem;
   }
   
   .tab-btn svg {
@@ -521,11 +548,89 @@
   .search-result-card {
     flex-wrap: wrap;
     gap: 12px;
+    padding: 12px;
+  }
+
+  .friend-avatar,
+  .friend-avatar-fallback {
+    width: 42px;
+    height: 42px;
+    font-size: 14px;
+  }
+
+  .friend-name {
+    font-size: 0.9rem;
   }
   
   .friend-actions,
   .request-actions {
     width: 100%;
     justify-content: flex-end;
+  }
+
+  .action-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .accept-btn,
+  .send-btn,
+  .reject-btn,
+  .cancel-btn {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
+
+  .search-box {
+    padding: 10px 14px;
+  }
+
+  .search-input {
+    font-size: 0.9rem;
+  }
+
+  .empty-state {
+    padding: 30px 16px;
+  }
+
+  .empty-icon {
+    font-size: 40px;
+  }
+
+  .empty-state h3 {
+    font-size: 1rem;
+  }
+
+  .add-btn {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+  }
+
+  /* Hide blobs on mobile for performance */
+  .friends-page .bg-blob {
+    display: none;
+  }
+}
+
+/* Small phones */
+@media (max-width: 360px) {
+  .friends-content {
+    padding: 12px;
+    padding-top: 20px;
+  }
+
+  .tab-btn {
+    padding: 8px 10px;
+    font-size: 0.75rem;
+  }
+
+  .friend-info {
+    gap: 10px;
+  }
+
+  .friend-avatar,
+  .friend-avatar-fallback {
+    width: 38px;
+    height: 38px;
   }
 }

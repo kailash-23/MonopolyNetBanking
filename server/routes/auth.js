@@ -141,6 +141,9 @@ router.post("/complete-profile", async (req, res) => {
       message: "Profile updated successfully",
     });
   } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expired. Please sign in again." });
+    }
     console.error("Complete profile error:", error);
     res.status(500).json({ message: "Failed to update profile" });
   }
@@ -188,6 +191,9 @@ router.get("/me", async (req, res) => {
 
     res.json({ user: user.toJSON() });
   } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expired. Please sign in again." });
+    }
     res.status(401).json({ message: "Not authorized" });
   }
 });
@@ -361,6 +367,9 @@ router.put("/profile", async (req, res) => {
       message: "Profile updated successfully",
     });
   } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expired. Please sign in again." });
+    }
     console.error("Profile update error:", error);
     res.status(500).json({ message: "Failed to update profile" });
   }
@@ -406,6 +415,9 @@ router.put("/password", async (req, res) => {
 
     res.json({ message: "Password updated successfully" });
   } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expired. Please sign in again." });
+    }
     console.error("Password update error:", error);
     res.status(500).json({ message: "Failed to update password" });
   }
@@ -442,6 +454,9 @@ router.put("/settings", async (req, res) => {
       message: "Settings updated successfully",
     });
   } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expired. Please sign in again." });
+    }
     console.error("Settings update error:", error);
     res.status(500).json({ message: "Failed to update settings" });
   }
@@ -477,6 +492,9 @@ router.get("/stats", async (req, res) => {
       gameHistory: user.gameHistory.slice(-10).reverse(), // Last 10 games
     });
   } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expired. Please sign in again." });
+    }
     console.error("Stats fetch error:", error);
     res.status(500).json({ message: "Failed to fetch stats" });
   }

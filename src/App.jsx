@@ -1,12 +1,16 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { SignIn, SignUp, Friends } from './pages';
-import Dashboard from './pages/Dashboard';
-import ProfileSetup from './pages/ProfileSetup';
-import Settings from './pages/Settings';
-import Terms from './pages/Terms';
-import GameLobby from './pages/GameLobby';
-import GameSession from './pages/GameSession';
+import { 
+  SignIn, 
+  SignUp, 
+  Friends, 
+  Dashboard, 
+  ProfileSetup, 
+  Settings, 
+  Terms,
+  GameLobby,
+  GameSession 
+} from './pages';
 import './styles/index.css';
 
 function App() {

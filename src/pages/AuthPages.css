@@ -7,15 +7,14 @@
 /* Page Layout */
 .auth-page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   background: 
     linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(250,248,245,0.9) 100%),
-    url('/images/monopoly-bg.jpg');
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
+    url('/images/monopoly-bg.jpg') center/cover no-repeat fixed;
+  background-color: #faf8f5;
   position: relative;
   overflow: hidden;
   padding: 2rem 1rem;
