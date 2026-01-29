@@ -267,12 +267,24 @@
   min-width: 0;
 }
 
-.friend-avatar {
+.friend-avatar-wrapper {
+  position: relative;
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  object-fit: cover;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.friend-avatar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  z-index: 1;
 }
 
 .friend-avatar-fallback {

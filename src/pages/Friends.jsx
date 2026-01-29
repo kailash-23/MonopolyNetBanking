@@ -227,13 +227,19 @@ const Friends = () => {
                   friends.map(friend => (
                     <div key={friend._id} className="friend-card">
                       <div className="friend-info">
-                        {friend.avatar ? (
-                          <img src={friend.avatar} alt="" className="friend-avatar" />
-                        ) : (
+                        <div className="friend-avatar-wrapper">
+                          {friend.avatar && (
+                            <img 
+                              src={friend.avatar} 
+                              alt="" 
+                              className="friend-avatar" 
+                              onError={(e) => e.target.style.display = 'none'}
+                            />
+                          )}
                           <div className="friend-avatar-fallback">
                             {getInitials(friend.displayName || friend.username)}
                           </div>
-                        )}
+                        </div>
                         <div className="friend-details">
                           <span className="friend-name">{friend.displayName || friend.username}</span>
                           <span className="friend-uid">UID: {friend.uid}</span>
@@ -280,13 +286,19 @@ const Friends = () => {
                     pendingReceived.map(request => (
                       <div key={request.from._id} className="request-card">
                         <div className="friend-info">
-                          {request.from.avatar ? (
-                            <img src={request.from.avatar} alt="" className="friend-avatar" />
-                          ) : (
+                          <div className="friend-avatar-wrapper">
+                            {request.from.avatar && (
+                              <img 
+                                src={request.from.avatar} 
+                                alt="" 
+                                className="friend-avatar" 
+                                onError={(e) => e.target.style.display = 'none'}
+                              />
+                            )}
                             <div className="friend-avatar-fallback">
                               {getInitials(request.from.displayName || request.from.username)}
                             </div>
-                          )}
+                          </div>
                           <div className="friend-details">
                             <span className="friend-name">{request.from.displayName || request.from.username}</span>
                             <span className="friend-uid">UID: {request.from.uid}</span>
@@ -320,13 +332,19 @@ const Friends = () => {
                     pendingSent.map(request => (
                       <div key={request.to._id} className="request-card">
                         <div className="friend-info">
-                          {request.to.avatar ? (
-                            <img src={request.to.avatar} alt="" className="friend-avatar" />
-                          ) : (
+                          <div className="friend-avatar-wrapper">
+                            {request.to.avatar && (
+                              <img 
+                                src={request.to.avatar} 
+                                alt="" 
+                                className="friend-avatar" 
+                                onError={(e) => e.target.style.display = 'none'}
+                              />
+                            )}
                             <div className="friend-avatar-fallback">
                               {getInitials(request.to.displayName || request.to.username)}
                             </div>
-                          )}
+                          </div>
                           <div className="friend-details">
                             <span className="friend-name">{request.to.displayName || request.to.username}</span>
                             <span className="friend-uid">UID: {request.to.uid}</span>
@@ -374,13 +392,19 @@ const Friends = () => {
                     {searchResults.map(user => (
                       <div key={user._id} className="search-result-card">
                         <div className="friend-info">
-                          {user.avatar ? (
-                            <img src={user.avatar} alt="" className="friend-avatar" />
-                          ) : (
+                          <div className="friend-avatar-wrapper">
+                            {user.avatar && (
+                              <img 
+                                src={user.avatar} 
+                                alt="" 
+                                className="friend-avatar" 
+                                onError={(e) => e.target.style.display = 'none'}
+                              />
+                            )}
                             <div className="friend-avatar-fallback">
                               {getInitials(user.displayName || user.username)}
                             </div>
-                          )}
+                          </div>
                           <div className="friend-details">
                             <span className="friend-name">{user.displayName || user.username}</span>
                             <span className="friend-uid">UID: {user.uid}</span>

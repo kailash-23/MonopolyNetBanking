@@ -100,11 +100,10 @@
 .back-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
+  gap: 6px;
+  padding: 8px 4px;
   background: transparent;
-  border: 2px solid #e5e7eb;
-  border-radius: 12px;
+  border: none;
   font-size: 0.95rem;
   font-weight: 500;
   color: #6b7280;
@@ -113,9 +112,7 @@
 }
 
 .back-btn:hover {
-  border-color: #ef4444;
   color: #ef4444;
-  background: rgba(239, 68, 68, 0.05);
 }
 
 .lobby-brand {
@@ -337,10 +334,20 @@
   overflow: hidden;
 }
 
+.player-avatar .player-initials {
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .player-avatar img {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  z-index: 1;
 }
 
 .player-avatar.empty {

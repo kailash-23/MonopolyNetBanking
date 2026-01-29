@@ -402,9 +402,20 @@
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
+.social-btn--full {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  font-size: 0.9rem;
+}
+
 .social-btn:hover {
   background: #fafafa;
   border-color: #ddd;
+}
+
+.social-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .social-btn svg {

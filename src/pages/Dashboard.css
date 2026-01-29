@@ -162,15 +162,30 @@
   border-bottom: 1px solid #f0f0f2;
 }
 
-.menu-avatar,
+.menu-avatar-wrapper {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.menu-avatar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  z-index: 1;
+}
+
 .menu-avatar-fallback {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  object-fit: cover;
-}
-
-.menu-avatar-fallback {
   background: linear-gradient(135deg, #d4a574 0%, #c99a69 100%);
   display: flex;
   align-items: center;
@@ -495,15 +510,20 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .friend-avatar-mini img {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  z-index: 1;
 }
 
-.friend-avatar-mini span {
+.friend-avatar-mini .friend-initials {
   color: white;
   font-size: 0.85rem;
   font-weight: 600;
@@ -844,14 +864,16 @@
   font-size: 1.5rem;
   font-weight: 600;
   text-align: center;
-  letter-spacing: 8px;
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
   transition: all 0.2s ease;
   -webkit-text-fill-color: #2d2d3a;
 }
 
 .game-code-input::placeholder {
   color: #c0c0c8;
-  letter-spacing: 4px;
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
 }
 
 .game-code-input:focus {

@@ -212,10 +212,13 @@ function GameLobby() {
                 className={`player-card ${player.isReady ? 'ready' : ''} ${getColorClass(player.color)}`}
               >
                 <div className="player-avatar">
-                  {player.user?.avatar ? (
-                    <img src={player.user.avatar} alt="" />
-                  ) : (
-                    <span>{getInitials(player.user?.displayName || player.user?.username)}</span>
+                  <span className="player-initials">{getInitials(player.user?.displayName || player.user?.username)}</span>
+                  {player.user?.avatar && (
+                    <img 
+                      src={player.user.avatar} 
+                      alt="" 
+                      onError={(e) => { e.target.style.opacity = '0'; e.target.style.visibility = 'hidden'; }}
+                    />
                   )}
                   {player.isHost && (
                     <div className="host-badge" title="Host">

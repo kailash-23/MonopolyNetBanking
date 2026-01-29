@@ -219,11 +219,17 @@ function Dashboard() {
         {showProfileMenu && (
           <div className="profile-menu">
             <div className="profile-menu-header">
-              {userAvatar ? (
-                <img src={userAvatar} alt="" className="menu-avatar" />
-              ) : (
+              <div className="menu-avatar-wrapper">
+                {userAvatar && (
+                  <img 
+                    src={userAvatar} 
+                    alt="" 
+                    className="menu-avatar" 
+                    onError={(e) => e.target.style.display = 'none'}
+                  />
+                )}
                 <div className="menu-avatar-fallback">{getInitials(user.displayName || user.username)}</div>
-              )}
+              </div>
               <div className="menu-user-info">
                 <span className="menu-display-name">{user.displayName || user.username}</span>
                 <span className="menu-uid">UID: {user.uid}</span>
@@ -345,10 +351,13 @@ function Dashboard() {
                 return (
                 <div key={friend._id || index} className="friend-item-mini">
                   <div className="friend-avatar-mini">
-                    {friendAvatar ? (
-                      <img src={friendAvatar} alt="" />
-                    ) : (
-                      <span>{getInitials(friend.displayName || friend.username)}</span>
+                    <span className="friend-initials">{getInitials(friend.displayName || friend.username)}</span>
+                    {friendAvatar && (
+                      <img 
+                        src={friendAvatar} 
+                        alt="" 
+                        onError={(e) => { e.target.style.opacity = '0'; e.target.style.visibility = 'hidden'; }} 
+                      />
                     )}
                     <div className={`online-indicator ${friend.isOnline ? 'online' : friend.inGame ? 'in-game' : 'offline'}`}></div>
                   </div>
