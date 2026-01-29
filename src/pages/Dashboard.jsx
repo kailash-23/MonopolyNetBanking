@@ -487,11 +487,11 @@ function Dashboard() {
 
       {/* Join Game Modal */}
       {showJoinModal && (
-        <div className="modal-overlay" onClick={() => { soundService.playModalClose(); setShowJoinModal(false); setError(''); }}>
+        <div className="modal-overlay" onClick={() => { soundService.playModalClose(); setShowJoinModal(false); setError(''); setIsJoining(false); setGameCode(''); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Join a Game</h2>
-              <button className="modal-close" onClick={() => { soundService.playModalClose(); setShowJoinModal(false); setError(''); }}>×</button>
+              <button className="modal-close" onClick={() => { soundService.playModalClose(); setShowJoinModal(false); setError(''); setIsJoining(false); setGameCode(''); }}>×</button>
             </div>
             <div className="modal-body">
               <div className="form-group">
@@ -502,14 +502,16 @@ function Dashboard() {
                   placeholder="XXXXXX"
                   value={gameCode}
                   onChange={(e) => setGameCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && gameCode.length === 6 && !isJoining) handleJoinGame(); }}
                   maxLength={6}
+                  autoFocus
                 />
                 <p className="input-hint">Ask the host for the 6-character code</p>
               </div>
               {error && <div className="modal-error">{error}</div>}
             </div>
             <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => { soundService.playClick(); setShowJoinModal(false); setError(''); }}>Cancel</button>
+              <button className="btn-secondary" onClick={() => { soundService.playClick(); setShowJoinModal(false); setError(''); setIsJoining(false); setGameCode(''); }}>Cancel</button>
               <button className="btn-primary" disabled={gameCode.length !== 6 || isJoining} onClick={handleJoinGame}>
                 {isJoining ? 'Joining...' : 'Join Game'}
               </button>

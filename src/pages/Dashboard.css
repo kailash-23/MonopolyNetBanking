@@ -926,35 +926,40 @@
 
 .modal-footer {
   display: flex;
-  justify-content: flex-end;
-  gap: 10px;
+  gap: 12px;
   padding: 16px 20px;
   border-top: 1px solid #f0f0f2;
 }
 
+.modal-footer .btn-secondary,
+.modal-footer .btn-primary {
+  flex: 1;
+  min-width: 0;
+}
+
 .btn-secondary {
-  padding: 10px 20px;
-  background: #fafafa;
-  border: 1px solid #e8e8ec;
-  border-radius: 10px;
+  padding: 14px 20px;
+  background: #f5f5f7;
+  border: 1px solid #e0e0e4;
+  border-radius: 12px;
   color: #5a5a6e;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .btn-secondary:hover {
-  background: #f0f0f2;
+  background: #eaeaee;
 }
 
 .btn-primary {
-  padding: 10px 24px;
-  background: #d4a574;
-  border: none;
-  border-radius: 10px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #d4a574 0%, #c99a69 100%);
+  border: 1px solid transparent;
+  border-radius: 12px;
   color: white;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
