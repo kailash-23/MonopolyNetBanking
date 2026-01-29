@@ -32,6 +32,16 @@ function GameLobby() {
     }
   }, [code]);
 
+  // Background refresh for polling (no loading indicator)
+  const refreshInBackground = useCallback(async () => {
+    try {
+      const data = await gameService.getGame(code);
+      setGame(data.game);
+    } catch (err) {
+      console.warn('Background refresh failed:', err.message);
+    }
+  }, [code]);
+
   useEffect(() => {
     if (!game && code) {
       loadGame();
@@ -41,10 +51,10 @@ function GameLobby() {
   // Poll for updates every 3 seconds (in a real app, use WebSockets)
   useEffect(() => {
     if (game && game.status === 'waiting') {
-      const interval = setInterval(loadGame, 3000);
+      const interval = setInterval(refreshInBackground, 3000);
       return () => clearInterval(interval);
     }
-  }, [game, loadGame]);
+  }, [game, refreshInBackground]);
 
   if (!user) {
     return <Navigate to="/" replace />;
