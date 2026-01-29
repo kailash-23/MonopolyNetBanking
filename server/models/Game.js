@@ -151,6 +151,21 @@ gameSchema.pre("save", async function (next) {
   next();
 });
 
+// Auto-delete game when status changes to "finished"
+gameSchema.post("save", async function (doc) {
+  if (doc.status === "finished") {
+    // Delete after a short delay to allow any final reads
+    setTimeout(async () => {
+      try {
+        await mongoose.model("Game").findByIdAndDelete(doc._id);
+        console.log(`Game ${doc.code} deleted (finished)`);
+      } catch (error) {
+        console.error("Error auto-deleting finished game:", error.message);
+      }
+    }, 5000); // 5 second delay
+  }
+});
+
 // Method to add player to game
 gameSchema.methods.addPlayer = function (userId, isHost = false) {
   const existingPlayer = this.players.find(

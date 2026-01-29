@@ -10,6 +10,21 @@ const getAuthHeaders = () => {
   };
 };
 
+// Helper to safely parse JSON response
+const parseResponse = async (response) => {
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    // If response is not JSON, throw a helpful error
+    throw new Error(
+      response.ok
+        ? "Invalid response from server"
+        : `Server error (${response.status}): Unable to connect`
+    );
+  }
+};
+
 // Create a new game
 export const createGame = async (gameData) => {
   const response = await fetch(`${API_URL}/create`, {
@@ -18,7 +33,7 @@ export const createGame = async (gameData) => {
     body: JSON.stringify(gameData),
   });
 
-  const data = await response.json();
+  const data = await parseResponse(response);
   if (!response.ok) {
     throw new Error(data.message || "Failed to create game");
   }
@@ -33,7 +48,7 @@ export const joinGame = async (code) => {
     body: JSON.stringify({ code }),
   });
 
-  const data = await response.json();
+  const data = await parseResponse(response);
   if (!response.ok) {
     throw new Error(data.message || "Failed to join game");
   }
@@ -48,7 +63,7 @@ export const leaveGame = async (gameId) => {
     body: JSON.stringify({ gameId }),
   });
 
-  const data = await response.json();
+  const data = await parseResponse(response);
   if (!response.ok) {
     throw new Error(data.message || "Failed to leave game");
   }
@@ -61,7 +76,7 @@ export const getGame = async (code) => {
     headers: getAuthHeaders(),
   });
 
-  const data = await response.json();
+  const data = await parseResponse(response);
   if (!response.ok) {
     throw new Error(data.message || "Failed to get game");
   }
@@ -74,7 +89,7 @@ export const getActiveGame = async () => {
     headers: getAuthHeaders(),
   });
 
-  const data = await response.json();
+  const data = await parseResponse(response);
   if (!response.ok) {
     throw new Error(data.message || "Failed to get active game");
   }
@@ -89,7 +104,7 @@ export const toggleReady = async (gameId) => {
     body: JSON.stringify({ gameId }),
   });
 
-  const data = await response.json();
+  const data = await parseResponse(response);
   if (!response.ok) {
     throw new Error(data.message || "Failed to toggle ready status");
   }
@@ -104,7 +119,7 @@ export const startGame = async (gameId) => {
     body: JSON.stringify({ gameId }),
   });
 
-  const data = await response.json();
+  const data = await parseResponse(response);
   if (!response.ok) {
     throw new Error(data.message || "Failed to start game");
   }
@@ -119,7 +134,7 @@ export const transferMoney = async (gameId, toPlayerId, amount, type, descriptio
     body: JSON.stringify({ gameId, toPlayerId, amount, type, description }),
   });
 
-  const data = await response.json();
+  const data = await parseResponse(response);
   if (!response.ok) {
     throw new Error(data.message || "Failed to transfer money");
   }
@@ -134,7 +149,7 @@ export const endGame = async (gameId) => {
     body: JSON.stringify({ gameId }),
   });
 
-  const data = await response.json();
+  const data = await parseResponse(response);
   if (!response.ok) {
     throw new Error(data.message || "Failed to end game");
   }
