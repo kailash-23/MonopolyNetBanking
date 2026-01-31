@@ -23,6 +23,7 @@ app.use(cors({
   origin: [
     "http://localhost:3000", 
     "http://localhost:3001",
+    "http://localhost:5173",
     "https://monopolynetbanking.netlify.app",  // Your Netlify domain
     process.env.FRONTEND_URL  // Backup from env variable
   ].filter(Boolean),
@@ -31,9 +32,22 @@ app.use(cors({
 app.use(express.json());
 
 // Routes
+console.log("Registering auth routes...");
 app.use("/api/auth", authRoutes);
+console.log("Registering friends routes...");
 app.use("/api/friends", friendsRoutes);
+console.log("Registering games routes...");
 app.use("/api/games", gamesRoutes);
+console.log("All routes registered successfully!");
+
+// Debug endpoint to check routes
+app.get("/api/health", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    routes: ["auth", "friends", "games"],
+    timestamp: new Date().toISOString()
+  });
+});
 
 app.get("/", (req, res) => {
   res.send("Backend running");
