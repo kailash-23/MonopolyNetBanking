@@ -27,7 +27,7 @@ function GameSession() {
   // Quick amounts for bank
   const quickAmounts = [50, 100, 200, 500, 1000];
 
-  // Load game data
+  // Load game data (only for initial load)
   const loadGame = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -41,19 +41,46 @@ function GameSession() {
     }
   }, [code]);
 
+  // Background refresh - no loading indicator, no page flicker
+  const refreshInBackground = useCallback(async () => {
+    try {
+      const data = await gameService.getGame(code);
+      // Only update if game data actually changed (compare player balances)
+      setGame(prevGame => {
+        if (!prevGame) return data.game;
+        // Check if anything important changed
+        const prevBalances = prevGame.players?.map(p => p.balance).join(',');
+        const newBalances = data.game.players?.map(p => p.balance).join(',');
+        const statusChanged = prevGame.status !== data.game.status;
+        
+        if (prevBalances !== newBalances || statusChanged) {
+          return data.game;
+        }
+        return prevGame; // No change, don't trigger re-render
+      });
+      
+      // Navigate away if game ended
+      if (data.game.status === 'completed') {
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      console.warn('Background refresh failed:', err.message);
+    }
+  }, [code, navigate]);
+
   useEffect(() => {
     if (!game && code) {
       loadGame();
     }
   }, [game, code, loadGame]);
 
-  // Poll for updates more frequently (every 2 seconds for real-time feel)
+  // Poll for updates in background (every 3 seconds - balanced for performance)
   useEffect(() => {
     if (game && game.status === 'in_progress') {
-      const interval = setInterval(loadGame, 2000);
+      const interval = setInterval(refreshInBackground, 3000);
       return () => clearInterval(interval);
     }
-  }, [game, loadGame]);
+  }, [game, refreshInBackground]);
 
   if (!user) {
     return <Navigate to="/" replace />;
@@ -67,23 +94,46 @@ function GameSession() {
   const handleTransfer = async () => {
     if (!selectedPlayer || !amount || parseInt(amount) <= 0) return;
     
+    const transferAmount = parseInt(amount);
+    const recipientId = selectedPlayer.user?._id || selectedPlayer.user;
+    
+    // Optimistic UI update - show change immediately
+    setGame(prev => ({
+      ...prev,
+      players: prev.players.map(p => {
+        const playerId = p.user?._id || p.user;
+        if (playerId === user._id) {
+          return { ...p, balance: p.balance - transferAmount };
+        }
+        if (playerId === recipientId) {
+          return { ...p, balance: p.balance + transferAmount };
+        }
+        return p;
+      })
+    }));
+    
+    // Close modal immediately for snappy feel
+    setShowTransferModal(false);
+    setSelectedPlayer(null);
+    setAmount('');
+    setDescription('');
+    soundService.playSuccess();
+    
     try {
       setIsProcessing(true);
-      soundService.playSuccess();
       const data = await gameService.transferMoney(
         game.id,
-        selectedPlayer.user?._id || selectedPlayer.user,
-        parseInt(amount),
+        recipientId,
+        transferAmount,
         'transfer',
         description || `Transfer to ${selectedPlayer.user?.displayName || selectedPlayer.user?.username}`
       );
+      // Update with server response to ensure accuracy
       setGame(prev => ({ ...prev, players: data.players }));
-      setShowTransferModal(false);
-      setSelectedPlayer(null);
-      setAmount('');
-      setDescription('');
     } catch (err) {
       setError(err.message);
+      // Revert on error - refresh from server
+      refreshInBackground();
     } finally {
       setIsProcessing(false);
     }
@@ -92,31 +142,63 @@ function GameSession() {
   const handleBankTransaction = async () => {
     if (!amount || parseInt(amount) <= 0) return;
     
+    const transactionAmount = parseInt(amount);
+    
+    // Optimistic UI update
+    setGame(prev => ({
+      ...prev,
+      players: prev.players.map(p => {
+        const playerId = p.user?._id || p.user;
+        if (playerId === user._id) {
+          const newBalance = bankAction === 'receive' 
+            ? p.balance + transactionAmount 
+            : p.balance - transactionAmount;
+          return { ...p, balance: newBalance };
+        }
+        return p;
+      })
+    }));
+    
+    // Close modal immediately
+    setShowBankModal(false);
+    setAmount('');
+    setDescription('');
+    soundService.playSuccess();
+    
     try {
       setIsProcessing(true);
-      soundService.playSuccess();
       const type = bankAction === 'receive' ? 'bank_receive' : 'bank_pay';
       const data = await gameService.transferMoney(
         game.id,
         null,
-        parseInt(amount),
+        transactionAmount,
         type,
         description || (bankAction === 'receive' ? 'Received from bank' : 'Paid to bank')
       );
       setGame(prev => ({ ...prev, players: data.players }));
-      setShowBankModal(false);
-      setAmount('');
-      setDescription('');
     } catch (err) {
       setError(err.message);
+      refreshInBackground();
     } finally {
       setIsProcessing(false);
     }
   };
 
   const handleCollectGo = async () => {
+    // Optimistic update
+    setGame(prev => ({
+      ...prev,
+      players: prev.players.map(p => {
+        const playerId = p.user?._id || p.user;
+        if (playerId === user._id) {
+          return { ...p, balance: p.balance + game.goSalary };
+        }
+        return p;
+      })
+    }));
+    soundService.playSuccess();
+    
     try {
-      soundService.playSuccess();
       const data = await gameService.transferMoney(
         game.id,
         null,
