@@ -57,7 +57,7 @@ function GameLobby() {
   // Poll for updates every 3 seconds (in a real app, use WebSockets)
   useEffect(() => {
     if (game && game.status === 'waiting') {
-      const interval = setInterval(refreshInBackground, 3000);
+      const interval = setInterval(refreshInBackground, 500);
       return () => clearInterval(interval);
     }
   }, [game, refreshInBackground]);

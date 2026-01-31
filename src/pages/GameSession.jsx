@@ -77,7 +77,7 @@ function GameSession() {
   // Poll for updates in background (every 3 seconds - balanced for performance)
   useEffect(() => {
     if (game && game.status === 'in_progress') {
-      const interval = setInterval(refreshInBackground, 3000);
+      const interval = setInterval(refreshInBackground, 500);
       return () => clearInterval(interval);
     }
   }, [game, refreshInBackground]);
