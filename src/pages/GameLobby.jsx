@@ -37,10 +37,16 @@ function GameLobby() {
     try {
       const data = await gameService.getGame(code);
       setGame(data.game);
+      
+      // If game has started, navigate all players to the game session
+      if (data.game.status === 'in_progress') {
+        soundService.playGameStart();
+        navigate(`/game/${code}`, { state: { game: data.game } });
+      }
     } catch (err) {
       console.warn('Background refresh failed:', err.message);
     }
-  }, [code]);
+  }, [code, navigate]);
 
   useEffect(() => {
     if (!game && code) {

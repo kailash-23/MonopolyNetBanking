@@ -47,10 +47,10 @@ function GameSession() {
     }
   }, [game, code, loadGame]);
 
-  // Poll for updates
+  // Poll for updates more frequently (every 2 seconds for real-time feel)
   useEffect(() => {
     if (game && game.status === 'in_progress') {
-      const interval = setInterval(loadGame, 5000);
+      const interval = setInterval(loadGame, 2000);
       return () => clearInterval(interval);
     }
   }, [game, loadGame]);
