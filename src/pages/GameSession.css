@@ -759,6 +759,12 @@
   font-weight: 600;
 }
 
+.request-description {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
 .request-actions {
   display: flex;
   gap: 8px;

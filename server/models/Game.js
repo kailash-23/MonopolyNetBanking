@@ -67,11 +67,27 @@ const transactionSchema = new mongoose.Schema({
   },
 });
 
-const pendingGoRequestSchema = new mongoose.Schema({
+const pendingApprovalSchema = new mongoose.Schema({
   player: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true,
+  },
+  approver: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
+  type: {
+    type: String,
+    enum: ["go_salary", "bank_receive"],
+    required: true,
+  },
+  amount: {
+    type: Number,
+    required: true,
+  },
+  description: {
+    type: String,
   },
   requestedAt: {
     type: Date,
@@ -124,7 +140,7 @@ const gameSchema = new mongoose.Schema(
       default: "waiting",
     },
     transactions: [transactionSchema],
-    pendingGoRequests: [pendingGoRequestSchema],
+    pendingApprovals: [pendingApprovalSchema],
     settings: {
       freeParking: {
         type: Boolean,

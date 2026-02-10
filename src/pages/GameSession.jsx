@@ -23,8 +23,9 @@ function GameSession() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [bankAction, setBankAction] = useState('receive'); // 'receive' or 'pay'
   const [showEndConfirm, setShowEndConfirm] = useState(false);
-  const [pendingGoRequests, setPendingGoRequests] = useState([]);
+  const [pendingApprovals, setPendingApprovals] = useState([]);
   const [hasPendingGoRequest, setHasPendingGoRequest] = useState(false);
+  const [hasPendingBankRequest, setHasPendingBankRequest] = useState(false);
 
   // Quick amounts for bank
   const quickAmounts = [50, 100, 200, 500, 1000];
@@ -61,15 +62,21 @@ function GameSession() {
         return prevGame; // No change, don't trigger re-render
       });
       
-      // Update pending GO requests
-      const pending = data.game.pendingGoRequests?.filter(r => r.status === 'pending') || [];
-      setPendingGoRequests(pending);
+      // Update pending approvals
+      const pending = data.game.pendingApprovals?.filter(r => r.status === 'pending') || [];
+      setPendingApprovals(pending);
       
-      // Check if current user has a pending request
-      const userHasPending = pending.some(r => 
-        (r.player?._id || r.player) === user?._id
+      // Check if current user has a pending GO request
+      const userHasPendingGo = pending.some(r => 
+        (r.player?._id || r.player) === user?._id && r.type === 'go_salary'
       );
-      setHasPendingGoRequest(userHasPending);
+      setHasPendingGoRequest(userHasPendingGo);
+      
+      // Check if current user has a pending bank receive request
+      const userHasPendingBank = pending.some(r => 
+        (r.player?._id || r.player) === user?._id && r.type === 'bank_receive'
+      );
+      setHasPendingBankRequest(userHasPendingBank);
       
       // Navigate away if game ended
       if (data.game.status === 'completed') {
@@ -156,16 +163,43 @@ function GameSession() {
     
     const transactionAmount = parseInt(amount);
     
+    // For bank receive, require approval
+    if (bankAction === 'receive') {
+      if (hasPendingBankRequest) {
+        setError('You already have a pending bank receive request');
+        return;
+      }
+      
+      // Close modal immediately
+      setShowBankModal(false);
+      setAmount('');
+      soundService.playClick();
+      
+      try {
+        const data = await gameService.requestBankReceive(
+          game.id, 
+          transactionAmount, 
+          description || 'Received from bank'
+        );
+        setHasPendingBankRequest(true);
+        if (data.pendingApprovals) {
+          setPendingApprovals(data.pendingApprovals);
+        }
+        setDescription('');
+      } catch (err) {
+        setError(err.message);
+      }
+      return;
+    }
+    
+    // For bank pay, process directly (no approval needed)
     // Optimistic UI update
     setGame(prev => ({
       ...prev,
       players: prev.players.map(p => {
         const playerId = p.user?._id || p.user;
         if (playerId === user._id) {
-          const newBalance = bankAction === 'receive' 
-            ? p.balance + transactionAmount 
-            : p.balance - transactionAmount;
-          return { ...p, balance: newBalance };
+          return { ...p, balance: p.balance - transactionAmount };
         }
         return p;
       })
@@ -179,13 +213,12 @@ function GameSession() {
     
     try {
       setIsProcessing(true);
-      const type = bankAction === 'receive' ? 'bank_receive' : 'bank_pay';
       const data = await gameService.transferMoney(
         game.id,
         null,
         transactionAmount,
-        type,
-        description || (bankAction === 'receive' ? 'Received from bank' : 'Paid to bank')
+        'bank_pay',
+        description || 'Paid to bank'
       );
       setGame(prev => ({ ...prev, players: data.players }));
     } catch (err) {
@@ -206,23 +239,23 @@ function GameSession() {
       soundService.playClick();
       const data = await gameService.requestGoSalary(game.id);
       setHasPendingGoRequest(true);
-      if (data.pendingGoRequests) {
-        setPendingGoRequests(data.pendingGoRequests);
+      if (data.pendingApprovals) {
+        setPendingApprovals(data.pendingApprovals);
       }
     } catch (err) {
       setError(err.message);
     }
   };
 
-  const handleApproveGo = async (requestId, approved) => {
+  const handleApproveRequest = async (requestId, approved) => {
     try {
       soundService.playClick();
-      const data = await gameService.approveGoSalary(game.id, requestId, approved);
+      const data = await gameService.approveRequest(game.id, requestId, approved);
       if (data.players) {
         setGame(prev => ({ ...prev, players: data.players }));
       }
-      if (data.pendingGoRequests) {
-        setPendingGoRequests(data.pendingGoRequests);
+      if (data.pendingApprovals) {
+        setPendingApprovals(data.pendingApprovals);
       }
       if (approved) {
         soundService.playSuccess();
@@ -349,12 +382,14 @@ function GameSession() {
         </button>
       </div>
 
-      {/* Pending GO Requests (Host Only) */}
-      {isHost && pendingGoRequests.length > 0 && (
+      {/* Pending Approval Requests (shown to designated approver) */}
+      {pendingApprovals.filter(r => (r.approver?._id || r.approver) === user._id).length > 0 && (
         <div className="pending-requests-section">
-          <h3>Pending GO Requests</h3>
+          <h3>Pending Approval Requests</h3>
           <div className="pending-requests-list">
-            {pendingGoRequests.map((request) => (
+            {pendingApprovals
+              .filter(r => (r.approver?._id || r.approver) === user._id)
+              .map((request) => (
               <div key={request._id} className="pending-request-item">
                 <div className="request-player-info">
                   <div className="request-avatar">
@@ -366,13 +401,18 @@ function GameSession() {
                   </div>
                   <div className="request-details">
                     <span className="request-player-name">{request.player?.displayName || request.player?.username}</span>
-                    <span className="request-amount">Collect GO +${game?.goSalary}</span>
+                    <span className="request-amount">
+                      {request.type === 'go_salary' ? 'Collect GO' : 'Bank Receive'} +${request.amount}
+                    </span>
+                    {request.description && (
+                      <span className="request-description">{request.description}</span>
+                    )}
                   </div>
                 </div>
                 <div className="request-actions">
                   <button 
                     className="btn-approve" 
-                    onClick={() => handleApproveGo(request._id, true)}
+                    onClick={() => handleApproveRequest(request._id, true)}
                     title="Approve"
                   >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -381,7 +421,7 @@ function GameSession() {
                   </button>
                   <button 
                     className="btn-deny" 
-                    onClick={() => handleApproveGo(request._id, false)}
+                    onClick={() => handleApproveRequest(request._id, false)}
                     title="Deny"
                   >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -576,9 +616,13 @@ function GameSession() {
               <button 
                 className={`btn-primary ${bankAction === 'pay' ? 'pay' : 'receive'}`}
                 onClick={handleBankTransaction}
-                disabled={!amount || parseInt(amount) <= 0 || (bankAction === 'pay' && parseInt(amount) > (currentPlayer?.balance || 0)) || isProcessing}
+                disabled={!amount || parseInt(amount) <= 0 || (bankAction === 'pay' && parseInt(amount) > (currentPlayer?.balance || 0)) || isProcessing || (bankAction === 'receive' && hasPendingBankRequest)}
               >
-                {isProcessing ? 'Processing...' : bankAction === 'receive' ? `Receive ${formatMoney(parseInt(amount) || 0)}` : `Pay ${formatMoney(parseInt(amount) || 0)}`}
+                {isProcessing ? 'Processing...' : 
+                  bankAction === 'receive' 
+                    ? (hasPendingBankRequest ? 'Request Pending...' : `Request ${formatMoney(parseInt(amount) || 0)}`)
+                    : `Pay ${formatMoney(parseInt(amount) || 0)}`
+                }
               </button>
             </div>
           </div>
