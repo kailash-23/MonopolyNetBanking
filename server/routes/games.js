@@ -248,7 +248,8 @@ router.get("/:code", authenticate, async (req, res) => {
   try {
     const game = await Game.findOne({ code: req.params.code.toUpperCase() })
       .populate("players.user", "username displayName avatar uid")
-      .populate("host", "username displayName avatar uid");
+      .populate("host", "username displayName avatar uid")
+      .populate("pendingGoRequests.player", "username displayName avatar uid");
 
     if (!game) {
       return res.status(404).json({ message: "Game not found" });
@@ -268,6 +269,7 @@ router.get("/:code", authenticate, async (req, res) => {
         settings: game.settings,
         playerCount: game.playerCount,
         transactions: game.transactions,
+        pendingGoRequests: game.pendingGoRequests,
         createdAt: game.createdAt,
         startedAt: game.startedAt,
       },
@@ -488,6 +490,133 @@ router.post("/transfer", authenticate, async (req, res) => {
   } catch (error) {
     console.error("Transfer error:", error);
     res.status(500).json({ message: "Error processing transfer", error: error.message });
+  }
+});
+
+// @route   POST /api/games/request-go
+// @desc    Request GO salary (requires host approval)
+// @access  Private
+router.post("/request-go", authenticate, async (req, res) => {
+  try {
+    const { gameId } = req.body;
+
+    const game = await Game.findById(gameId);
+    if (!game) {
+      return res.status(404).json({ message: "Game not found" });
+    }
+
+    if (game.status !== "in_progress") {
+      return res.status(400).json({ message: "Game is not in progress" });
+    }
+
+    const player = game.players.find(
+      (p) => p.user.toString() === req.user._id.toString()
+    );
+
+    if (!player) {
+      return res.status(400).json({ message: "You are not in this game" });
+    }
+
+    // Check if there's already a pending request from this player
+    const existingRequest = game.pendingGoRequests.find(
+      (r) => r.player.toString() === req.user._id.toString() && r.status === "pending"
+    );
+
+    if (existingRequest) {
+      return res.status(400).json({ message: "You already have a pending GO request" });
+    }
+
+    // Add the pending request
+    game.pendingGoRequests.push({
+      player: req.user._id,
+      requestedAt: new Date(),
+      status: "pending",
+    });
+
+    await game.save();
+
+    await game.populate("pendingGoRequests.player", "username displayName avatar uid");
+    await game.populate("players.user", "username displayName avatar uid");
+
+    res.json({
+      message: "GO salary request sent to host for approval",
+      pendingGoRequests: game.pendingGoRequests.filter(r => r.status === "pending"),
+      players: game.players,
+    });
+  } catch (error) {
+    console.error("Request GO error:", error);
+    res.status(500).json({ message: "Error requesting GO salary", error: error.message });
+  }
+});
+
+// @route   POST /api/games/approve-go
+// @desc    Approve or deny GO salary request (host only)
+// @access  Private
+router.post("/approve-go", authenticate, async (req, res) => {
+  try {
+    const { gameId, requestId, approved } = req.body;
+
+    const game = await Game.findById(gameId);
+    if (!game) {
+      return res.status(404).json({ message: "Game not found" });
+    }
+
+    // Check if user is the host
+    if (game.host.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Only the host can approve GO requests" });
+    }
+
+    if (game.status !== "in_progress") {
+      return res.status(400).json({ message: "Game is not in progress" });
+    }
+
+    // Find the pending request
+    const request = game.pendingGoRequests.id(requestId);
+    if (!request) {
+      return res.status(404).json({ message: "Request not found" });
+    }
+
+    if (request.status !== "pending") {
+      return res.status(400).json({ message: "Request has already been processed" });
+    }
+
+    // Update request status
+    request.status = approved ? "approved" : "denied";
+
+    // If approved, add the GO salary to the player's balance
+    if (approved) {
+      const player = game.players.find(
+        (p) => p.user.toString() === request.player.toString()
+      );
+
+      if (player) {
+        player.balance += game.goSalary;
+
+        // Record transaction
+        game.recordTransaction(
+          request.player,
+          null,
+          game.goSalary,
+          "go_salary",
+          "Passed GO - Collect salary (Host approved)"
+        );
+      }
+    }
+
+    await game.save();
+
+    await game.populate("pendingGoRequests.player", "username displayName avatar uid");
+    await game.populate("players.user", "username displayName avatar uid");
+
+    res.json({
+      message: approved ? "GO salary approved and paid" : "GO salary request denied",
+      approved,
+      pendingGoRequests: game.pendingGoRequests.filter(r => r.status === "pending"),
+      players: game.players,
+    });
+  } catch (error) {
+    console.error("Approve GO error:", error);
+    res.status(500).json({ message: "Error processing GO request", error: error.message });
   }
 });
 

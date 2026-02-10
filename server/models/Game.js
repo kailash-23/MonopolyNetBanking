@@ -67,6 +67,23 @@ const transactionSchema = new mongoose.Schema({
   },
 });
 
+const pendingGoRequestSchema = new mongoose.Schema({
+  player: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+  requestedAt: {
+    type: Date,
+    default: Date.now,
+  },
+  status: {
+    type: String,
+    enum: ["pending", "approved", "denied"],
+    default: "pending",
+  },
+});
+
 const gameSchema = new mongoose.Schema(
   {
     code: {
@@ -107,6 +124,7 @@ const gameSchema = new mongoose.Schema(
       default: "waiting",
     },
     transactions: [transactionSchema],
+    pendingGoRequests: [pendingGoRequestSchema],
     settings: {
       freeParking: {
         type: Boolean,

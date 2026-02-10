@@ -155,3 +155,33 @@ export const endGame = async (gameId) => {
   }
   return data;
 };
+
+// Request GO salary (requires host approval)
+export const requestGoSalary = async (gameId) => {
+  const response = await fetch(`${API_URL}/request-go`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId }),
+  });
+
+  const data = await parseResponse(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to request GO salary");
+  }
+  return data;
+};
+
+// Approve or deny GO salary request (host only)
+export const approveGoSalary = async (gameId, requestId, approved) => {
+  const response = await fetch(`${API_URL}/approve-go`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId, requestId, approved }),
+  });
+
+  const data = await parseResponse(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to process GO request");
+  }
+  return data;
+};

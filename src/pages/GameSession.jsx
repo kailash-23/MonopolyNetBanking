@@ -23,6 +23,8 @@ function GameSession() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [bankAction, setBankAction] = useState('receive'); // 'receive' or 'pay'
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [pendingGoRequests, setPendingGoRequests] = useState([]);
+  const [hasPendingGoRequest, setHasPendingGoRequest] = useState(false);
 
   // Quick amounts for bank
   const quickAmounts = [50, 100, 200, 500, 1000];
@@ -59,6 +61,16 @@ function GameSession() {
         return prevGame; // No change, don't trigger re-render
       });
       
+      // Update pending GO requests
+      const pending = data.game.pendingGoRequests?.filter(r => r.status === 'pending') || [];
+      setPendingGoRequests(pending);
+      
+      // Check if current user has a pending request
+      const userHasPending = pending.some(r => 
+        (r.player?._id || r.player) === user?._id
+      );
+      setHasPendingGoRequest(userHasPending);
+      
       // Navigate away if game ended
       if (data.game.status === 'completed') {
         navigate('/dashboard');
@@ -66,7 +78,7 @@ function GameSession() {
     } catch (err) {
       console.warn('Background refresh failed:', err.message);
     }
-  }, [code, navigate]);
+  }, [code, navigate, user?._id]);
 
   useEffect(() => {
     if (!game && code) {
@@ -185,28 +197,36 @@ function GameSession() {
   };
 
   const handleCollectGo = async () => {
-    // Optimistic update
-    setGame(prev => ({
-      ...prev,
-      players: prev.players.map(p => {
-        const playerId = p.user?._id || p.user;
-        if (playerId === user._id) {
-          return { ...p, balance: p.balance + game.goSalary };
-        }
-        return p;
-      })
-    }));
-    soundService.playSuccess();
+    if (hasPendingGoRequest) {
+      setError('You already have a pending GO request');
+      return;
+    }
     
     try {
-      const data = await gameService.transferMoney(
-        game.id,
-        null,
-        game.goSalary,
-        'go_salary',
-        'Passed GO - Collect salary'
-      );
-      setGame(prev => ({ ...prev, players: data.players }));
+      soundService.playClick();
+      const data = await gameService.requestGoSalary(game.id);
+      setHasPendingGoRequest(true);
+      if (data.pendingGoRequests) {
+        setPendingGoRequests(data.pendingGoRequests);
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleApproveGo = async (requestId, approved) => {
+    try {
+      soundService.playClick();
+      const data = await gameService.approveGoSalary(game.id, requestId, approved);
+      if (data.players) {
+        setGame(prev => ({ ...prev, players: data.players }));
+      }
+      if (data.pendingGoRequests) {
+        setPendingGoRequests(data.pendingGoRequests);
+      }
+      if (approved) {
+        soundService.playSuccess();
+      }
     } catch (err) {
       setError(err.message);
     }
@@ -310,11 +330,15 @@ function GameSession() {
 
       {/* Quick Actions */}
       <div className="quick-actions">
-        <button className="quick-action collect-go" onClick={handleCollectGo}>
+        <button 
+          className={`quick-action collect-go ${hasPendingGoRequest ? 'pending' : ''}`} 
+          onClick={handleCollectGo}
+          disabled={hasPendingGoRequest}
+        >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
           </svg>
-          <span>Collect GO</span>
+          <span>{hasPendingGoRequest ? 'Pending...' : 'Collect GO'}</span>
           <span className="quick-amount">+${game?.goSalary}</span>
         </button>
         <button className="quick-action bank" onClick={() => { soundService.playClick(); setShowBankModal(true); }}>
@@ -324,6 +348,52 @@ function GameSession() {
           <span>Bank</span>
         </button>
       </div>
+
+      {/* Pending GO Requests (Host Only) */}
+      {isHost && pendingGoRequests.length > 0 && (
+        <div className="pending-requests-section">
+          <h3>Pending GO Requests</h3>
+          <div className="pending-requests-list">
+            {pendingGoRequests.map((request) => (
+              <div key={request._id} className="pending-request-item">
+                <div className="request-player-info">
+                  <div className="request-avatar">
+                    {request.player?.avatar ? (
+                      <img src={request.player.avatar} alt="" />
+                    ) : (
+                      <span>{getInitials(request.player?.displayName || request.player?.username)}</span>
+                    )}
+                  </div>
+                  <div className="request-details">
+                    <span className="request-player-name">{request.player?.displayName || request.player?.username}</span>
+                    <span className="request-amount">Collect GO +${game?.goSalary}</span>
+                  </div>
+                </div>
+                <div className="request-actions">
+                  <button 
+                    className="btn-approve" 
+                    onClick={() => handleApproveGo(request._id, true)}
+                    title="Approve"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </button>
+                  <button 
+                    className="btn-deny" 
+                    onClick={() => handleApproveGo(request._id, false)}
+                    title="Deny"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Other Players */}
       <div className="players-section">
