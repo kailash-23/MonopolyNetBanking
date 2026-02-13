@@ -2,10 +2,17 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { soundService } from '../services/soundService';
+import { notificationService } from '../services/notificationService';
 import * as gameService from '../services/gameService';
 import mrMonopolyImg from '../mrMonopoly.png';
 import { MONOPOLY_TOKENS, TokenIcon } from '../utils/monopolyTokens';
 import './GameLobby.css';
+
+// Generate shareable join link
+const getJoinLink = (code) => {
+  const baseUrl = window.location.origin;
+  return `${baseUrl}/join/${code}`;
+};
 
 function GameLobby() {
   const navigate = useNavigate();
@@ -26,6 +33,7 @@ function GameLobby() {
   const [friends, setFriends] = useState([]);
   const [friendsLoading, setFriendsLoading] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
+  const [notifiedFriends, setNotifiedFriends] = useState([]);
 
   // Load game data
   const loadGame = useCallback(async () => {
@@ -151,10 +159,48 @@ function GameLobby() {
     setTimeout(() => setInviteCopied(false), 2000);
   };
 
-  const handleShareToFriend = (friend) => {
-    const message = `Join my MonoPay game! Code: ${game?.code}`;
-    navigator.clipboard.writeText(message);
+  const handleShareToFriend = async (friend) => {
+    soundService.playClick();
+    try {
+      // Send notification to friend via backend
+      await authService.sendGameInvite(friend._id, game?.id, game?.code, game?.name);
+      soundService.playSuccess();
+      // Mark as notified
+      setNotifiedFriends(prev => [...prev, friend._id]);
+      setError('');
+    } catch (err) {
+      // Fallback to clipboard if notification fails
+      const message = `Join my MonoPay game! Code: ${game?.code}\n${getJoinLink(game?.code)}`;
+      navigator.clipboard.writeText(message);
+      soundService.playSuccess();
+    }
+  };
+
+  const handleCopyJoinLink = () => {
+    const link = getJoinLink(game?.code);
+    navigator.clipboard.writeText(link);
+    setInviteCopied(true);
     soundService.playSuccess();
+    setTimeout(() => setInviteCopied(false), 2000);
+  };
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Join ${game?.name || 'my Monopoly game'}!`,
+          text: `Join my MonoPay game! Code: ${game?.code}`,
+          url: getJoinLink(game?.code),
+        });
+        soundService.playSuccess();
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          handleCopyJoinLink();
+        }
+      }
+    } else {
+      handleCopyJoinLink();
+    }
   };
 
   const handleSelectToken = async (tokenId) => {
@@ -251,7 +297,15 @@ function GameLobby() {
           <img src={mrMonopolyImg} alt="Mr. Monopoly" className="brand-logo" />
           <span className="brand-title">Mono<span>Pay</span></span>
         </div>
-        <div className="header-spacer"></div>
+        <button className="share-lobby-btn" onClick={openInviteModal} title="Share & Invite">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="18" cy="5" r="3"/>
+            <circle cx="6" cy="12" r="3"/>
+            <circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+        </button>
       </header>
 
       {/* Main Content */}
@@ -517,6 +571,18 @@ function GameLobby() {
                 </button>
               </div>
               <span className="invite-code-hint">{inviteCopied ? 'Copied!' : 'Tap to copy code'}</span>
+              
+              {/* Share Link Button */}
+              <button className="share-link-btn" onClick={handleNativeShare}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="18" cy="5" r="3"/>
+                  <circle cx="6" cy="12" r="3"/>
+                  <circle cx="18" cy="19" r="3"/>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
+                Share Join Link
+              </button>
             </div>
 
             <div className="invite-friends-list">
@@ -551,17 +617,18 @@ function GameLobby() {
                         </div>
                         {isInCurrentGame ? (
                           <span className="invite-joined-badge">Joined</span>
+                        ) : notifiedFriends.includes(friend._id) ? (
+                          <span className="invite-notified-badge">Notified</span>
                         ) : (
                           <button 
-                            className="invite-send-btn"
+                            className="invite-send-btn notify"
                             onClick={() => handleShareToFriend(friend)}
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-                              <polyline points="16 6 12 2 8 6"/>
-                              <line x1="12" y1="2" x2="12" y2="15"/>
+                              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                             </svg>
-                            Share
+                            Notify
                           </button>
                         )}
                       </div>

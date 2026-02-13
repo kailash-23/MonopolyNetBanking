@@ -99,6 +99,14 @@ const userSchema = new mongoose.Schema(
         receivedAt: { type: Date, default: Date.now }
       }]
     },
+    // Game Invites
+    gameInvites: [{
+      from: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      gameId: { type: String },
+      gameCode: { type: String },
+      gameName: { type: String },
+      sentAt: { type: Date, default: Date.now }
+    }],
     // Password Reset
     passwordResetToken: String,
     passwordResetExpires: Date,

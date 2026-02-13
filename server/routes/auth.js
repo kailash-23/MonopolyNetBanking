@@ -334,7 +334,7 @@ router.put("/profile", async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const { username, displayName, email } = req.body;
+    const { username, displayName, email, avatar } = req.body;
 
     // Validate and update username if provided
     if (username && username !== user.username) {
@@ -359,6 +359,7 @@ router.put("/profile", async (req, res) => {
 
     if (displayName !== undefined) user.displayName = displayName;
     if (email !== undefined) user.email = email;
+    if (avatar !== undefined) user.avatar = avatar;
 
     await user.save();
 

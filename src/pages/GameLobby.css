@@ -167,6 +167,31 @@
   width: 100px;
 }
 
+/* Share Lobby Button (Header) */
+.share-lobby-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, #d4a574 0%, #c49464 100%);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(212, 165, 116, 0.3);
+}
+
+.share-lobby-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(212, 165, 116, 0.4);
+}
+
+.share-lobby-btn:active {
+  transform: scale(0.96);
+}
+
 /* Main Content */
 .lobby-content {
   position: relative;
@@ -266,6 +291,7 @@
   border-top: 1px solid #f3f4f6;
   gap: 8px;
   flex-wrap: wrap;
+  position: relative;
 }
 
 .setting {
@@ -666,6 +692,15 @@
     min-width: 70px;
   }
 
+  .edit-settings-btn {
+    position: absolute;
+    top: -32px;
+    right: 0;
+    width: 32px;
+    height: 32px;
+    margin-left: 0;
+  }
+
   .leave-btn span {
     display: none;
   }
@@ -920,6 +955,34 @@
   color: #9ca3af;
 }
 
+/* Share Link Button */
+.share-link-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #d4a574 0%, #c49464 100%);
+  border: none;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(212, 165, 116, 0.3);
+}
+
+.share-link-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(212, 165, 116, 0.4);
+}
+
+.share-link-btn:active {
+  transform: scale(0.98);
+}
+
 .invite-friends-list {
   padding: 16px 20px 20px;
   flex: 1;
@@ -1063,10 +1126,28 @@
   box-shadow: 0 2px 8px rgba(212, 165, 116, 0.35);
 }
 
+.invite-send-btn.notify {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.invite-send-btn.notify:hover {
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.35);
+}
+
 .invite-joined-badge {
   padding: 5px 12px;
   background: rgba(74, 222, 128, 0.1);
   color: #22c55e;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.invite-notified-badge {
+  padding: 5px 12px;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
   border-radius: 8px;
   font-size: 0.8rem;
   font-weight: 500;

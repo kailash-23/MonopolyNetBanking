@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { soundService } from '../services/soundService';
+import { notificationService } from '../services/notificationService';
 import * as gameService from '../services/gameService';
 import mrMonopolyImg from '../mrMonopoly.png';
 import './Dashboard.css';
@@ -40,6 +41,7 @@ function Dashboard() {
   const [error, setError] = useState('');
   const [savedGames, setSavedGames] = useState([]);
   const [isResumingGame, setIsResumingGame] = useState(null);
+  const [gameInvites, setGameInvites] = useState([]);
 
   // Close profile menu when clicking outside
   useEffect(() => {
@@ -101,10 +103,28 @@ function Dashboard() {
       }
     };
 
+    const loadGameInvites = async () => {
+      try {
+        const data = await authService.getGameInvites();
+        setGameInvites(data.invites || []);
+      } catch (error) {
+        console.error('Failed to load game invites:', error);
+      }
+    };
+
+    // Request notification permission if not already set
+    const requestNotificationPermission = async () => {
+      if (notificationService.isSupported() && notificationService.getPermission() === 'default') {
+        await notificationService.requestPermission();
+      }
+    };
+
     if (user) {
       loadStats();
       loadFriendRequests();
       loadSavedGames();
+      loadGameInvites();
+      requestNotificationPermission();
     }
   }, [user]);
 
@@ -215,6 +235,37 @@ function Dashboard() {
       setSavedGames(prev => prev.filter(g => g.id !== gameId));
     } catch (err) {
       console.error('Failed to delete saved game:', err);
+    }
+  };
+
+  const handleJoinFromInvite = async (invite) => {
+    try {
+      soundService.playSuccess();
+      const data = await gameService.joinGame(invite.gameCode);
+      
+      // Remove the invite
+      await authService.dismissGameInvite(invite._id);
+      setGameInvites(prev => prev.filter(i => i._id !== invite._id));
+      
+      // Navigate to lobby or game
+      if (data.game.status === 'waiting') {
+        navigate(`/lobby/${data.game.code}`, { state: { game: data.game } });
+      } else {
+        navigate(`/game/${data.game.code}`, { state: { game: data.game } });
+      }
+    } catch (err) {
+      setError(err.message);
+      soundService.playClick();
+    }
+  };
+
+  const handleDismissInvite = async (inviteId) => {
+    try {
+      soundService.playClick();
+      await authService.dismissGameInvite(inviteId);
+      setGameInvites(prev => prev.filter(i => i._id !== inviteId));
+    } catch (err) {
+      console.error('Failed to dismiss invite:', err);
     }
   };
 
@@ -356,6 +407,52 @@ function Dashboard() {
             </div>
           </button>
         </div>
+
+        {/* Game Invites Section */}
+        {gameInvites.length > 0 && (
+          <div className="game-invites-section">
+            <div className="invites-header">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              <span>Game Invitations</span>
+            </div>
+            <div className="invites-list">
+              {gameInvites.map((invite) => (
+                <div key={invite._id} className="invite-card">
+                  <div className="invite-info">
+                    <div className="invite-from">
+                      {invite.from?.avatar ? (
+                        <img src={invite.from.avatar} alt="" className="invite-avatar" />
+                      ) : (
+                        <div className="invite-avatar-placeholder">
+                          {invite.from?.displayName?.[0] || invite.from?.username?.[0] || '?'}
+                        </div>
+                      )}
+                      <span className="invite-sender">{invite.from?.displayName || invite.from?.username}</span>
+                    </div>
+                    <span className="invite-game-name">{invite.gameName || 'Monopoly Game'}</span>
+                  </div>
+                  <div className="invite-actions">
+                    <button 
+                      className="btn-join-invite"
+                      onClick={() => handleJoinFromInvite(invite)}
+                    >
+                      Join
+                    </button>
+                    <button 
+                      className="btn-dismiss-invite"
+                      onClick={() => handleDismissInvite(invite._id)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Saved Games Section */}
         <div className="saved-games-section">

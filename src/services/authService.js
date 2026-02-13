@@ -525,6 +525,83 @@ export const authService = {
 
     return data;
   },
+
+  /**
+   * Send game invite notification to a friend
+   * @param {string} targetUserId - Target user's ID
+   * @param {string} gameId - Game ID
+   * @param {string} gameCode - Game code to join
+   * @param {string} gameName - Game name
+   * @returns {Promise<Object>} - Success message
+   */
+  async sendGameInvite(targetUserId, gameId, gameCode, gameName) {
+    const token = this.getToken();
+    
+    const response = await fetch(`${API_BASE}/api/friends/invite-to-game`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({ targetUserId, gameId, gameCode, gameName }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to send game invite.");
+    }
+
+    return data;
+  },
+
+  /**
+   * Get pending game invites for current user
+   * @returns {Promise<Object>} - Array of pending invites
+   */
+  async getGameInvites() {
+    const token = this.getToken();
+    
+    const response = await fetch(`${API_BASE}/api/friends/game-invites`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to get game invites.");
+    }
+
+    return data;
+  },
+
+  /**
+   * Dismiss a game invite
+   * @param {string} inviteId - Invite ID
+   * @returns {Promise<Object>} - Success message
+   */
+  async dismissGameInvite(inviteId) {
+    const token = this.getToken();
+    
+    const response = await fetch(`${API_BASE}/api/friends/dismiss-invite`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({ inviteId }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to dismiss invite.");
+    }
+
+    return data;
+  },
 };
 
 export default authService;

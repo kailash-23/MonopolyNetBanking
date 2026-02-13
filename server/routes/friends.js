@@ -307,4 +307,89 @@ router.post('/remove', verifyToken, async (req, res) => {
   }
 });
 
+// Send game invite to a friend
+router.post('/invite-to-game', verifyToken, async (req, res) => {
+  try {
+    const { targetUserId, gameId, gameCode, gameName } = req.body;
+
+    const [currentUser, targetUser] = await Promise.all([
+      User.findById(req.userId),
+      User.findById(targetUserId)
+    ]);
+
+    if (!targetUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check if they are friends
+    const areFriends = currentUser.friends.some(
+      friendId => friendId.toString() === targetUserId
+    );
+
+    if (!areFriends) {
+      return res.status(400).json({ message: 'You can only invite friends to games' });
+    }
+
+    // Check if invite already exists
+    const existingInvite = targetUser.gameInvites.find(
+      invite => invite.gameCode === gameCode && invite.from.toString() === req.userId
+    );
+
+    if (existingInvite) {
+      return res.json({ success: true, message: 'Invite already sent' });
+    }
+
+    // Add game invite
+    targetUser.gameInvites.push({
+      from: req.userId,
+      gameId,
+      gameCode,
+      gameName: gameName || 'Monopoly Game'
+    });
+
+    await targetUser.save();
+
+    res.json({ success: true, message: 'Game invite sent' });
+  } catch (error) {
+    console.error('Send game invite error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get game invites
+router.get('/game-invites', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId)
+      .populate('gameInvites.from', 'username displayName avatar uid');
+
+    res.json({ 
+      success: true, 
+      invites: user.gameInvites || [] 
+    });
+  } catch (error) {
+    console.error('Get game invites error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Dismiss game invite
+router.post('/dismiss-invite', verifyToken, async (req, res) => {
+  try {
+    const { inviteId } = req.body;
+
+    const user = await User.findById(req.userId);
+
+    user.gameInvites = user.gameInvites.filter(
+      invite => invite._id.toString() !== inviteId
+    );
+
+    await user.save();
+
+    res.json({ success: true, message: 'Invite dismissed' });
+  } catch (error) {
+    console.error('Dismiss invite error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 export default router;
