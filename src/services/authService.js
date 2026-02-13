@@ -4,8 +4,8 @@
  * Handles authentication operations with the backend API.
  */
 
-// Use environment variable for API URL, fallback to localhost for development
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+// Use environment variable for API URL, fallback to relative URL (proxied by Vite in dev)
+const API_BASE = import.meta.env.VITE_API_URL || "";
 const API_URL = `${API_BASE}/api/auth`;
 
 /**

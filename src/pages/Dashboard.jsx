@@ -38,6 +38,8 @@ function Dashboard() {
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState('');
+  const [savedGames, setSavedGames] = useState([]);
+  const [isResumingGame, setIsResumingGame] = useState(null);
 
   // Close profile menu when clicking outside
   useEffect(() => {
@@ -62,6 +64,8 @@ function Dashboard() {
   useEffect(() => {
     const loadStats = async () => {
       try {
+        // Refresh user data from server to get latest stats
+        await authService.refreshUser();
         const data = await authService.getStats();
         setStats(data.stats);
         setGameHistory(data.gameHistory || []);
@@ -88,9 +92,19 @@ function Dashboard() {
       }
     };
 
+    const loadSavedGames = async () => {
+      try {
+        const data = await gameService.getSavedGames();
+        setSavedGames(data.savedGames || []);
+      } catch (error) {
+        console.error('Failed to load saved games:', error);
+      }
+    };
+
     if (user) {
       loadStats();
       loadFriendRequests();
+      loadSavedGames();
     }
   }, [user]);
 
@@ -108,9 +122,9 @@ function Dashboard() {
   };
 
   const formatCurrency = (amount) => {
-    if (amount === null || amount === undefined) return '$0';
+    if (amount === null || amount === undefined) return '£0';
     const prefix = amount >= 0 ? '+' : '';
-    return `${prefix}$${Math.abs(amount).toLocaleString()}`;
+    return `${prefix}£${Math.abs(amount).toLocaleString()}`;
   };
 
   const handleLogout = () => {
@@ -171,6 +185,36 @@ function Dashboard() {
       soundService.playClick();
     } finally {
       setIsJoining(false);
+    }
+  };
+
+  const handleResumeGame = async (gameId) => {
+    try {
+      setIsResumingGame(gameId);
+      soundService.playGameStart();
+      
+      const data = await gameService.resumeGame(gameId);
+      
+      // Remove from saved games list
+      setSavedGames(prev => prev.filter(g => g.id !== gameId));
+      
+      // Navigate to lobby for the resumed game
+      navigate(`/lobby/${data.game.code}`, { state: { game: data.game } });
+    } catch (err) {
+      setError(err.message);
+      soundService.playClick();
+    } finally {
+      setIsResumingGame(null);
+    }
+  };
+
+  const handleDeleteSavedGame = async (gameId) => {
+    try {
+      soundService.playClick();
+      await gameService.deleteSavedGame(gameId);
+      setSavedGames(prev => prev.filter(g => g.id !== gameId));
+    } catch (err) {
+      console.error('Failed to delete saved game:', err);
     }
   };
 
@@ -313,26 +357,93 @@ function Dashboard() {
           </button>
         </div>
 
+        {/* Saved Games Section */}
+        <div className="saved-games-section">
+          <div className="saved-games-header">
+            <h2>Saved Games</h2>
+            {savedGames.length > 0 && <span className="saved-badge">{savedGames.length}</span>}
+          </div>
+          {savedGames.length > 0 ? (
+            <>
+              <p className="saved-games-desc">Games paused due to inactivity. Resume to continue playing!</p>
+              <div className="saved-games-list">
+                {savedGames.map((game) => (
+                  <div key={game.id} className="saved-game-card">
+                    <div className="saved-game-info">
+                      <span className="saved-game-name">{game.name}</span>
+                      <span className="saved-game-details">
+                        {game.playerCount} players · Paused {new Date(game.finishedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="saved-game-actions">
+                      <button 
+                        className="btn-resume"
+                        onClick={() => handleResumeGame(game.id)}
+                        disabled={isResumingGame === game.id}
+                      >
+                        {isResumingGame === game.id ? 'Resuming...' : '▶ Resume'}
+                      </button>
+                      <button 
+                        className="btn-delete-saved"
+                        onClick={() => handleDeleteSavedGame(game.id)}
+                        title="Delete saved game"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="saved-games-empty">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                <polyline points="17 21 17 13 7 13 7 21"/>
+                <polyline points="7 3 7 8 15 8"/>
+              </svg>
+              <p>No saved games</p>
+              <span>Games paused due to inactivity will appear here</span>
+            </div>
+          )}
+        </div>
+
         {/* Stats Section */}
         <div className="stats-section">
           <h2>Your Statistics</h2>
           {isLoading ? (
             <div className="loading-text">Loading stats...</div>
           ) : (
-            <div className="stats-grid">
-              <div className="stat-card">
-                <span className="stat-value">{stats?.gamesPlayed || 0}</span>
-                <span className="stat-label">Games Played</span>
+            <>
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <span className="stat-value">{stats?.gamesPlayed || 0}</span>
+                  <span className="stat-label">Games Played</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-value">{stats?.gamesWon || 0}</span>
+                  <span className="stat-label">Games Won</span>
+                </div>
+                <div className="stat-card highlight">
+                  <span className="stat-value">{stats?.winRate || '0%'}</span>
+                  <span className="stat-label">Win Rate</span>
+                </div>
               </div>
-              <div className="stat-card">
-                <span className="stat-value">{stats?.gamesWon || 0}</span>
-                <span className="stat-label">Games Won</span>
+              <div className="stats-details">
+                <div className="stat-detail-row">
+                  <span className="stat-detail-label">Total Earnings</span>
+                  <span className={`stat-detail-value ${(stats?.totalEarnings || 0) >= 0 ? 'positive' : 'negative'}`}>
+                    {(stats?.totalEarnings || 0) >= 0 ? '+' : ''}£{Math.abs(stats?.totalEarnings || 0).toLocaleString()}
+                  </span>
+                </div>
+                <div className="stat-detail-row">
+                  <span className="stat-detail-label">Player UID</span>
+                  <span className="stat-detail-value uid">{user.uid}</span>
+                </div>
               </div>
-              <div className="stat-card highlight">
-                <span className="stat-value">{stats?.winRate || '0%'}</span>
-                <span className="stat-label">Win Rate</span>
-              </div>
-            </div>
+            </>
           )}
         </div>
 
@@ -394,8 +505,8 @@ function Dashboard() {
                   <div className="game-date">{new Date(game.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
                   <div className="game-info">
                     <span className="game-players">{game.players} players</span>
-                    <span className={`game-result ${game.won ? 'won' : 'lost'}`}>
-                      {game.won ? '🏆 Victory' : 'Defeat'}
+                    <span className={`game-result ${game.result === 'Won' ? 'won' : 'lost'}`}>
+                      {game.result === 'Won' ? '🏆 Victory' : 'Defeat'}
                     </span>
                   </div>
                   <span className={`game-earnings ${game.earnings >= 0 ? 'positive' : 'negative'}`}>
@@ -466,10 +577,10 @@ function Dashboard() {
                 <div className="setting-row">
                   <span>Starting Money</span>
                   <select value={startingBalance} onChange={(e) => { soundService.playClick(); setStartingBalance(parseInt(e.target.value)); }}>
-                    <option value="1000">$1,000</option>
-                    <option value="1500">$1,500</option>
-                    <option value="2000">$2,000</option>
-                    <option value="2500">$2,500</option>
+                    <option value="1000">£1,000</option>
+                    <option value="1500">£1,500</option>
+                    <option value="2000">£2,000</option>
+                    <option value="2500">£2,500</option>
                   </select>
                 </div>
               </div>

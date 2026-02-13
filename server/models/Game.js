@@ -20,11 +20,16 @@ const playerSchema = new mongoose.Schema({
   },
   balance: {
     type: Number,
-    default: 1500, // Standard Monopoly starting money
+    default: 1500,
   },
   color: {
     type: String,
     enum: ["red", "blue", "green", "yellow", "purple", "orange", "pink", "cyan"],
+  },
+  token: {
+    type: String,
+    enum: ["dog", "car", "hat", "iron", "boot", "battleship", "wheelbarrow", "thimble", "horse", "train", "cannon"],
+    default: null,
   },
   isReady: {
     type: Boolean,
@@ -34,6 +39,12 @@ const playerSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  properties: [{
+    name: { type: String, required: true },
+    colorGroup: { type: String, required: true },
+    houses: { type: Number, default: 0, min: 0, max: 5 },
+    mortgaged: { type: Boolean, default: false },
+  }],
   joinedAt: {
     type: Date,
     default: Date.now,
@@ -157,6 +168,28 @@ const gameSchema = new mongoose.Schema(
     finishedAt: {
       type: Date,
     },
+    lastActivity: {
+      type: Date,
+      default: Date.now,
+    },
+    endReason: {
+      type: String,
+      enum: ["manual", "idle_timeout", "host_left", "saved"],
+      default: "manual",
+    },
+    // For resumed games - reference to original game and player balances
+    resumedFrom: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Game",
+    },
+    originalPlayerBalances: [{
+      odishUser: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+      balance: Number,
+      color: String,
+    }],
   },
   {
     timestamps: true,
@@ -185,14 +218,15 @@ gameSchema.pre("save", async function (next) {
   next();
 });
 
-// Auto-delete game when status changes to "finished"
+// Auto-delete game when status changes to "finished" (only for manually ended games)
 gameSchema.post("save", async function (doc) {
-  if (doc.status === "finished") {
-    // Delete after a short delay to allow any final reads
+  if (doc.status === "finished" && doc.endReason === "manual") {
+    // Only auto-delete manually ended games (not saved/idle/host_left)
+    // Delete after a short delay to allow any final reads (only manual ends)
     setTimeout(async () => {
       try {
         await mongoose.model("Game").findByIdAndDelete(doc._id);
-        console.log(`Game ${doc.code} deleted (finished)`);
+        console.log(`Game ${doc.code} deleted (finished manually)`);
       } catch (error) {
         console.error("Error auto-deleting finished game:", error.message);
       }

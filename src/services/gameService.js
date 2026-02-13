@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL || "";
 const API_URL = `${API_BASE}/api/games`;
 
 // Helper to get auth headers
@@ -111,6 +111,36 @@ export const toggleReady = async (gameId) => {
   return data;
 };
 
+// Select a Monopoly token
+export const selectToken = async (gameId, token) => {
+  const response = await fetch(`${API_URL}/select-token`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId, token }),
+  });
+
+  const data = await parseResponse(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to select token");
+  }
+  return data;
+};
+
+// Update game settings (host only)
+export const updateGameSettings = async (gameId, settings) => {
+  const response = await fetch(`${API_URL}/settings`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId, ...settings }),
+  });
+
+  const data = await parseResponse(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to update game settings");
+  }
+  return data;
+};
+
 // Start the game (host only)
 export const startGame = async (gameId) => {
   const response = await fetch(`${API_URL}/start`, {
@@ -197,6 +227,147 @@ export const approveRequest = async (gameId, requestId, approved) => {
   const data = await parseResponse(response);
   if (!response.ok) {
     throw new Error(data.message || "Failed to process request");
+  }
+  return data;
+};
+
+// Update game activity timestamp
+export const updateActivity = async (gameId) => {
+  const response = await fetch(`${API_URL}/activity`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId }),
+  });
+
+  const data = await parseResponse(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to update activity");
+  }
+  return data;
+};
+
+// Check if game is idle
+export const checkIdleStatus = async (gameId) => {
+  const response = await fetch(`${API_URL}/check-idle/${gameId}`, {
+    headers: getAuthHeaders(),
+  });
+
+  const data = await parseResponse(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to check idle status");
+  }
+  return data;
+};
+
+// Get saved games (idle-timed-out games)
+export const getSavedGames = async () => {
+  const response = await fetch(`${API_URL}/saved`, {
+    headers: getAuthHeaders(),
+  });
+
+  const data = await parseResponse(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to get saved games");
+  }
+  return data;
+};
+
+// Resume a saved game
+export const resumeGame = async (gameId) => {
+  const response = await fetch(`${API_URL}/resume`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId }),
+  });
+
+  const data = await parseResponse(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to resume game");
+  }
+  return data;
+};
+
+// Delete a saved game
+export const deleteSavedGame = async (gameId) => {
+  const response = await fetch(`${API_URL}/saved/${gameId}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+
+  const data = await parseResponse(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to delete saved game");
+  }
+  return data;
+};
+
+// Save game for later (host only)
+export const saveGame = async (gameId) => {
+  const response = await fetch(`${API_URL}/save`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId }),
+  });
+
+  const data = await parseResponse(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to save game");
+  }
+  return data;
+};
+
+export const buyProperty = async (gameId, propertyName, colorGroup, price) => {
+  const response = await fetch(`${API_URL}/property/buy`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId, propertyName, colorGroup, price }),
+  });
+
+  const data = await parseResponse(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to buy property");
+  }
+  return data;
+};
+
+export const sellProperty = async (gameId, propertyName, price) => {
+  const response = await fetch(`${API_URL}/property/sell`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId, propertyName, price }),
+  });
+
+  const data = await parseResponse(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to sell property");
+  }
+  return data;
+};
+
+export const manageHouse = async (gameId, propertyName, action, cost) => {
+  const response = await fetch(`${API_URL}/property/house`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId, propertyName, action, cost }),
+  });
+
+  const data = await parseResponse(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to manage house");
+  }
+  return data;
+};
+
+export const mortgageProperty = async (gameId, propertyName, action, value) => {
+  const response = await fetch(`${API_URL}/property/mortgage`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId, propertyName, action, value }),
+  });
+
+  const data = await parseResponse(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to mortgage property");
   }
   return data;
 };

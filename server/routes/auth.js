@@ -486,7 +486,9 @@ router.get("/stats", async (req, res) => {
 
     res.json({
       stats: {
-        ...user.stats,
+        gamesPlayed: user.stats.gamesPlayed || 0,
+        gamesWon: user.stats.gamesWon || 0,
+        totalEarnings: user.stats.totalEarnings || 0,
         winRate: `${winRate}%`,
       },
       gameHistory: user.gameHistory.slice(-10).reverse(), // Last 10 games
