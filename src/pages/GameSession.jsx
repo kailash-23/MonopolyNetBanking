@@ -215,6 +215,9 @@ function GameSession() {
   const [activeTab, setActiveTab] = useState('actions');
   const [expandedPropCard, setExpandedPropCard] = useState(null);
 
+  // Get game ID (handles both _id and id from API)
+  const gameId = game?._id || gameId;
+
   // ---- Data loading ----
   const loadGame = useCallback(async () => {
     try { setIsLoading(true); const data = await gameService.getGame(code); setGame(data.game); setError(''); }
@@ -253,24 +256,24 @@ function GameSession() {
 
   // Track activity
   useEffect(() => {
-    if (!game?.id || game?.status !== 'in_progress') return;
+    if (!gameId || game?.status !== 'in_progress') return;
     const handleActivity = () => { lastUserActivityRef.current = Date.now(); };
     const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
     events.forEach(e => window.addEventListener(e, handleActivity, { passive: true }));
     const activityInterval = setInterval(async () => {
       if (Date.now() - lastUserActivityRef.current < 5 * 60 * 1000) {
-        try { await gameService.updateActivity(game.id); } catch { /* silent */ }
+        try { await gameService.updateActivity(gameId); } catch { /* silent */ }
       }
     }, 5 * 60 * 1000);
     return () => { events.forEach(e => window.removeEventListener(e, handleActivity)); clearInterval(activityInterval); };
-  }, [game?.id, game?.status]);
+  }, [gameId, game?.status]);
 
   // Check idle
   useEffect(() => {
-    if (!game?.id || game?.status !== 'in_progress') return;
+    if (!gameId || game?.status !== 'in_progress') return;
     const checkIdle = async () => {
       try {
-        const data = await gameService.checkIdleStatus(game.id);
+        const data = await gameService.checkIdleStatus(gameId);
         if (data.gameEnded && data.endReason === 'idle_timeout') { setIdleEnded(true); setShowIdleWarning(false); return; }
         if (data.remainingMs && data.remainingMs <= 5 * 60 * 1000) { setIdleTimeRemaining(data.remainingMs); setShowIdleWarning(true); }
         else { setShowIdleWarning(false); setIdleTimeRemaining(null); }
@@ -279,10 +282,29 @@ function GameSession() {
     checkIdle();
     const idleCheck = setInterval(checkIdle, 30000);
     return () => clearInterval(idleCheck);
-  }, [game?.id, game?.status]);
+  }, [gameId, game?.status]);
+
+  // Handle browser back button - show leave confirmation
+  useEffect(() => {
+    const handlePopState = (e) => {
+      e.preventDefault();
+      // Show end game confirmation instead of directly leaving
+      setShowEndConfirm(true);
+      // Push state back so they stay on page
+      window.history.pushState({ inGame: true }, '');
+    };
+
+    // Push a state to history so we can intercept back
+    window.history.pushState({ inGame: true }, '');
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
 
   const handleStayActive = async () => {
-    try { await gameService.updateActivity(game.id); setShowIdleWarning(false); setIdleTimeRemaining(null); lastUserActivityRef.current = Date.now(); soundService.playClick(); }
+    try { await gameService.updateActivity(gameId); setShowIdleWarning(false); setIdleTimeRemaining(null); lastUserActivityRef.current = Date.now(); soundService.playClick(); }
     catch (err) { setError(err.message); }
   };
 
@@ -306,7 +328,7 @@ function GameSession() {
     soundService.playSuccess();
     try {
       setIsProcessing(true);
-      const data = await gameService.transferMoney(game.id, recipientId, transferAmount, 'transfer',
+      const data = await gameService.transferMoney(gameId, recipientId, transferAmount, 'transfer',
         description || `Transfer to ${selectedPlayer.user?.displayName || selectedPlayer.user?.username}`);
       setGame(prev => ({ ...prev, players: data.players }));
     } catch (err) { setError(err.message); refreshInBackground(); }
@@ -320,7 +342,7 @@ function GameSession() {
       if (hasPendingBankRequest) { setError('You already have a pending bank receive request'); return; }
       setShowBankModal(false); setAmount(''); soundService.playClick();
       try {
-        const data = await gameService.requestBankReceive(game.id, transactionAmount, description || 'Received from bank');
+        const data = await gameService.requestBankReceive(gameId, transactionAmount, description || 'Received from bank');
         setHasPendingBankRequest(true); if (data.pendingApprovals) setPendingApprovals(data.pendingApprovals);
         setDescription('');
       } catch (err) { setError(err.message); }
@@ -333,7 +355,7 @@ function GameSession() {
     setShowBankModal(false); setAmount(''); setDescription(''); soundService.playSuccess();
     try {
       setIsProcessing(true);
-      const data = await gameService.transferMoney(game.id, null, transactionAmount, 'bank_pay', description || 'Paid to bank');
+      const data = await gameService.transferMoney(gameId, null, transactionAmount, 'bank_pay', description || 'Paid to bank');
       setGame(prev => ({ ...prev, players: data.players }));
     } catch (err) { setError(err.message); refreshInBackground(); }
     finally { setIsProcessing(false); }
@@ -341,14 +363,14 @@ function GameSession() {
 
   const handleCollectGo = async () => {
     if (hasPendingGoRequest) { setError('You already have a pending GO request'); return; }
-    try { soundService.playClick(); const data = await gameService.requestGoSalary(game.id);
+    try { soundService.playClick(); const data = await gameService.requestGoSalary(gameId);
       setHasPendingGoRequest(true); if (data.pendingApprovals) setPendingApprovals(data.pendingApprovals);
     } catch (err) { setError(err.message); }
   };
 
   const handleApproveRequest = async (requestId, approved) => {
     try { soundService.playClick();
-      const data = await gameService.approveRequest(game.id, requestId, approved);
+      const data = await gameService.approveRequest(gameId, requestId, approved);
       if (data.players) setGame(prev => ({ ...prev, players: data.players }));
       if (data.pendingApprovals) setPendingApprovals(data.pendingApprovals);
       if (approved) soundService.playSuccess();
@@ -369,21 +391,21 @@ function GameSession() {
   });
 
   const handleEndGame = async () => {
-    try { soundService.playClick(); await gameService.endGame(game.id);
+    try { soundService.playClick(); await gameService.endGame(gameId);
       setLeaveSummaryData(buildSummaryData({ endedManually: true }));
       setShowEndConfirm(false); setShowLeaveSummary(true);
     } catch (err) { setError(err.message); }
   };
 
   const handleSaveGame = async () => {
-    try { soundService.playSuccess(); await gameService.saveGame(game.id);
+    try { soundService.playSuccess(); await gameService.saveGame(gameId);
       setLeaveSummaryData(buildSummaryData({ wasSaved: true }));
       setShowEndConfirm(false); setShowLeaveSummary(true);
     } catch (err) { setError(err.message); }
   };
 
   const handleLeaveGame = async () => {
-    try { soundService.playClick(); const result = await gameService.leaveGame(game.id);
+    try { soundService.playClick(); const result = await gameService.leaveGame(gameId);
       if (result.gameInfo?.wasInProgress) {
         setLeaveSummaryData({ gameName: result.gameInfo.name, gameCode: result.gameInfo.code,
           players: result.gameInfo.players.map(p => ({ name: p.displayName, balance: p.balance, color: p.color })),
@@ -398,7 +420,7 @@ function GameSession() {
   // Property handlers
   const handleBuyProperty = async (property) => {
     try { soundService.playClick();
-      const data = await gameService.buyProperty(game.id, property.name, property.colorGroup, property.price);
+      const data = await gameService.buyProperty(gameId, property.name, property.colorGroup, property.price);
       setGame(prev => ({ ...prev, players: data.players })); soundService.playSuccess();
     } catch (err) { setError(err.message); }
   };
@@ -406,14 +428,14 @@ function GameSession() {
   const handleSellProperty = async (propertyName) => {
     const prop = MONOPOLY_PROPERTIES.find(p => p.name === propertyName);
     try { soundService.playClick();
-      const data = await gameService.sellProperty(game.id, propertyName, prop ? Math.floor(prop.price / 2) : 0);
+      const data = await gameService.sellProperty(gameId, propertyName, prop ? Math.floor(prop.price / 2) : 0);
       setGame(prev => ({ ...prev, players: data.players }));
     } catch (err) { setError(err.message); }
   };
 
   const handleManageHouse = async (propertyName, action) => {
     try { soundService.playClick();
-      const data = await gameService.manageHouse(game.id, propertyName, action);
+      const data = await gameService.manageHouse(gameId, propertyName, action);
       setGame(prev => ({ ...prev, players: data.players }));
       if (action === 'add') soundService.playSuccess();
     } catch (err) { setError(err.message); }
@@ -424,7 +446,7 @@ function GameSession() {
     const mortgageValue = prop ? Math.floor(prop.price / 2) : 0;
     const unmortgageCost = prop ? Math.floor(prop.price * 0.55) : 0;
     try { soundService.playClick();
-      const data = await gameService.mortgageProperty(game.id, propertyName, action, action === 'mortgage' ? mortgageValue : unmortgageCost);
+      const data = await gameService.mortgageProperty(gameId, propertyName, action, action === 'mortgage' ? mortgageValue : unmortgageCost);
       setGame(prev => ({ ...prev, players: data.players }));
     } catch (err) { setError(err.message); }
   };

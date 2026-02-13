@@ -266,8 +266,13 @@ gameSchema.methods.addPlayer = function (userId, isHost = false) {
 
 // Method to remove player from game
 gameSchema.methods.removePlayer = function (userId) {
+  const userIdStr = userId.toString();
   const playerIndex = this.players.findIndex(
-    (p) => p.user.toString() === userId.toString()
+    (p) => {
+      // Handle both populated (object with _id) and unpopulated (ObjectId) cases
+      const playerId = p.user._id ? p.user._id.toString() : p.user.toString();
+      return playerId === userIdStr;
+    }
   );
   
   if (playerIndex === -1) {

@@ -79,6 +79,29 @@ function GameLobby() {
     }
   }, [game, refreshInBackground]);
 
+  // Handle browser back button - leave game before navigating
+  useEffect(() => {
+    const handlePopState = async (e) => {
+      e.preventDefault();
+      if (game) {
+        try {
+          await gameService.leaveGame(game._id || game.id);
+        } catch (err) {
+          console.warn('Failed to leave game on back:', err.message);
+        }
+      }
+      navigate('/dashboard', { replace: true });
+    };
+
+    // Push a state to history so we can intercept back
+    window.history.pushState({ inLobby: true }, '');
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [game, navigate]);
+
   if (!user) {
     return <Navigate to="/" replace />;
   }
@@ -100,7 +123,7 @@ function GameLobby() {
   const handleToggleReady = async () => {
     try {
       soundService.playClick();
-      const data = await gameService.toggleReady(game.id);
+      const data = await gameService.toggleReady(game._id || game.id);
       setGame(prev => ({ ...prev, players: data.players }));
     } catch (err) {
       setError(err.message);
@@ -111,7 +134,7 @@ function GameLobby() {
     try {
       setIsStarting(true);
       soundService.playGameStart();
-      const data = await gameService.startGame(game.id);
+      const data = await gameService.startGame(game._id || game.id);
       navigate(`/game/${game.code}`, { state: { game: data.game } });
     } catch (err) {
       setError(err.message);
@@ -122,8 +145,8 @@ function GameLobby() {
   const handleLeaveGame = async () => {
     try {
       soundService.playClick();
-      await gameService.leaveGame(game.id);
-      navigate('/dashboard');
+      await gameService.leaveGame(game._id || game.id);
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       setError(err.message);
     }
@@ -206,7 +229,7 @@ function GameLobby() {
   const handleSelectToken = async (tokenId) => {
     try {
       soundService.playClick();
-      const data = await gameService.selectToken(game.id, tokenId);
+      const data = await gameService.selectToken(game._id || game.id, tokenId);
       setGame(prev => ({ ...prev, players: data.players }));
     } catch (err) {
       setError(err.message);
@@ -227,7 +250,7 @@ function GameLobby() {
   const handleSaveSettings = async () => {
     try {
       soundService.playSuccess();
-      const data = await gameService.updateGameSettings(game.id, {
+      const data = await gameService.updateGameSettings(game._id || game.id, {
         startingBalance: editStartingBalance,
         goSalary: editGoSalary,
         maxPlayers: editMaxPlayers,
