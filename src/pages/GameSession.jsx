@@ -631,8 +631,8 @@ function GameSession() {
           </div>
           <div className="recent-list">
             {(game?.transactions || []).slice().reverse().slice(0, 3).map((tx, idx) => {
-              const fromPlayer = game?.players?.find(p => String(p.user?._id || p.user) === String(tx.from?._id || tx.from));
-              const toPlayer = game?.players?.find(p => String(p.user?._id || p.user) === String(tx.to?._id || tx.to));
+              const fromPlayer = game?.players?.find(p => String(p.user?._id || p.user) === String(tx.from));
+              const toPlayer = game?.players?.find(p => String(p.user?._id || p.user) === String(tx.to));
               const isBankTx = tx.type === 'bank_pay' || tx.type === 'bank_receive' || tx.type === 'go_salary';
               
               // For bank transactions, check type; for player transactions, check IDs

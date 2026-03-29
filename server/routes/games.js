@@ -1463,6 +1463,7 @@ router.post("/property/mortgage", authenticate, async (req, res) => {
     }
 
     game.lastActivity = new Date();
+    game.markModified('players');
     await game.save();
     await game.populate("players.user", "username displayName avatar uid");
 
