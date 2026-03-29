@@ -66,7 +66,7 @@ const transactionSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ["transfer", "bank_pay", "bank_receive", "go_salary", "tax", "rent", "purchase"],
+    enum: ["transfer", "bank_pay", "bank_receive", "go_salary", "tax", "rent", "purchase", "mortgage", "unmortgage"],
     required: true,
   },
   description: {
@@ -183,7 +183,7 @@ const gameSchema = new mongoose.Schema(
       ref: "Game",
     },
     originalPlayerBalances: [{
-      odishUser: {
+      user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
@@ -301,6 +301,13 @@ gameSchema.virtual("playerCount").get(function () {
 // Ensure virtuals are included in JSON
 gameSchema.set("toJSON", { virtuals: true });
 gameSchema.set("toObject", { virtuals: true });
+
+// Indexes for common queries
+gameSchema.index({ host: 1 }); // Find games by host
+gameSchema.index({ status: 1 }); // Filter by game status
+gameSchema.index({ "players.user": 1 }); // Find games a user is in
+gameSchema.index({ lastActivity: 1 }); // For idle game cleanup
+gameSchema.index({ createdAt: -1 }); // Sort by newest first
 
 const Game = mongoose.model("Game", gameSchema);
 

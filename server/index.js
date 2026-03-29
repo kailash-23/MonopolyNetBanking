@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import rateLimit from "express-rate-limit";
 import { connectDB } from "./config/db.js";
 import authRoutes from "./routes/auth.js";
 import friendsRoutes from "./routes/friends.js";
@@ -14,7 +15,6 @@ const __dirname = path.dirname(__filename);
 
 // Load .env from server directory
 dotenv.config({ path: path.join(__dirname, ".env") });
-connectDB();
 
 const app = express();
 
@@ -31,9 +31,30 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Rate limiting configuration
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per windowMs
+  message: { message: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Stricter rate limit for auth routes (login, register, password reset)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per 15 minutes
+  message: { message: 'Too many authentication attempts, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply general rate limiting to all routes
+app.use(generalLimiter);
+
 // Routes
 console.log("Registering auth routes...");
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
 console.log("Registering friends routes...");
 app.use("/api/friends", friendsRoutes);
 console.log("Registering games routes...");
@@ -54,6 +75,41 @@ app.get("/", (req, res) => {
 });
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+
+// Validate required environment variables
+const validateEnv = () => {
+  const requiredVars = ['JWT_SECRET', 'MONGO_URI'];
+  const missing = requiredVars.filter(v => !process.env[v]);
+  
+  if (missing.length > 0) {
+    console.error(`Missing required environment variables: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+  
+  // Warn about insecure JWT_SECRET in production
+  const insecureSecrets = ['change-this-later', 'your-secret-key', 'secret', 'jwt-secret'];
+  if (insecureSecrets.includes(process.env.JWT_SECRET.toLowerCase())) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('FATAL: Insecure JWT_SECRET detected in production. Please set a secure secret.');
+      process.exit(1);
+    } else {
+      console.warn('WARNING: Using insecure JWT_SECRET. Set a secure value before deploying to production.');
+    }
+  }
+};
+
+// Start server after database connection
+const startServer = async () => {
+  try {
+    validateEnv();
+    await connectDB();
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error.message);
+    process.exit(1);
+  }
+};
+
+startServer();

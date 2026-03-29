@@ -106,7 +106,7 @@ function GameLobby() {
     return <Navigate to="/" replace />;
   }
 
-  const isHost = game?.host?._id === user._id || game?.host === user._id;
+  const isHost = String(game?.host?._id || game?.host || '') === String(user?._id || '');
   const currentPlayer = game?.players?.find(p => 
     (p.user?._id || p.user) === user._id
   );
@@ -133,9 +133,25 @@ function GameLobby() {
   const handleStartGame = async () => {
     try {
       setIsStarting(true);
+      const latest = await gameService.getGame(code);
+      const latestGame = latest.game;
+      setGame(latestGame);
+
+      if (latestGame.status !== 'waiting') {
+        navigate(`/game/${latestGame.code}`, { state: { game: latestGame } });
+        return;
+      }
+
+      const latestAllReady = latestGame.players?.every((player) => player.isReady);
+      if (!latestAllReady) {
+        setError('Not all players are ready yet.');
+        setIsStarting(false);
+        return;
+      }
+
       soundService.playGameStart();
-      const data = await gameService.startGame(game._id || game.id);
-      navigate(`/game/${game.code}`, { state: { game: data.game } });
+      const data = await gameService.startGame(latestGame._id || latestGame.id);
+      navigate(`/game/${data.game.code}`, { state: { game: data.game } });
     } catch (err) {
       setError(err.message);
       setIsStarting(false);

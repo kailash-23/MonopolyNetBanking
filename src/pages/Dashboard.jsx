@@ -126,7 +126,8 @@ function Dashboard() {
       loadGameInvites();
       requestNotificationPermission();
     }
-  }, [user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!user) {
     return <Navigate to="/" replace />;
@@ -235,6 +236,7 @@ function Dashboard() {
       setSavedGames(prev => prev.filter(g => g.id !== gameId));
     } catch (err) {
       console.error('Failed to delete saved game:', err);
+      setError(err.message || 'Failed to delete saved game');
     }
   };
 
@@ -620,6 +622,11 @@ function Dashboard() {
           )}
         </div>
       </main>
+
+      {/* Error Toast */}
+      {error && !showHostModal && !showJoinModal && (
+        <div className="error-toast">{error}<button onClick={() => setError('')}>×</button></div>
+      )}
 
       {/* Host Game Modal */}
       {showHostModal && (

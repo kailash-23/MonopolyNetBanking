@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import { soundService } from '../services/soundService';
@@ -42,6 +42,14 @@ const Settings = () => {
   // Avatar picker state
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
+  const messageTimerRef = useRef(null);
+
+  // Cleanup message timer on unmount
+  useEffect(() => {
+    return () => {
+      if (messageTimerRef.current) clearTimeout(messageTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const currentUser = authService.getCurrentUser();
@@ -67,10 +75,11 @@ const Settings = () => {
     }
   }, [navigate]);
 
-  const showMessage = (type, text) => {
+  const showMessage = useCallback((type, text) => {
     setMessage({ type, text });
-    setTimeout(() => setMessage({ type: '', text: '' }), 4000);
-  };
+    if (messageTimerRef.current) clearTimeout(messageTimerRef.current);
+    messageTimerRef.current = setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+  }, []);
 
   const handleProfileChange = (key, value) => {
     setProfileData(prev => ({ ...prev, [key]: value }));

@@ -1,9 +1,44 @@
 import express from "express";
 import jwt from "jsonwebtoken";
+import * as jose from "jose";
 import User from "../models/User.js";
 import { generateResetToken, hashToken, sendPasswordResetEmail } from "../config/email.js";
 
 const router = express.Router();
+
+// Cache for Apple's public keys (JWKS)
+let appleJwksCache = null;
+let appleJwksCacheExpiry = 0;
+
+// Fetch and cache Apple's public keys
+async function getApplePublicKeys() {
+  const now = Date.now();
+  if (appleJwksCache && now < appleJwksCacheExpiry) {
+    return appleJwksCache;
+  }
+  
+  const response = await fetch('https://appleid.apple.com/auth/keys');
+  if (!response.ok) {
+    throw new Error('Failed to fetch Apple public keys');
+  }
+  
+  const jwks = await response.json();
+  appleJwksCache = jose.createLocalJWKSet(jwks);
+  appleJwksCacheExpiry = now + (24 * 60 * 60 * 1000); // Cache for 24 hours
+  return appleJwksCache;
+}
+
+// Verify Apple identity token
+async function verifyAppleToken(identityToken, clientId) {
+  const jwks = await getApplePublicKeys();
+  
+  const { payload } = await jose.jwtVerify(identityToken, jwks, {
+    issuer: 'https://appleid.apple.com',
+    audience: clientId,
+  });
+  
+  return payload;
+}
 
 // Generate JWT token
 const generateToken = (userId) => {
@@ -204,8 +239,10 @@ router.get("/me", async (req, res) => {
 router.post("/oauth/google", async (req, res) => {
   try {
     const { googleId, email, name, picture } = req.body;
+    const normalizedEmail = typeof email === "string" ? email.toLowerCase().trim() : "";
+    const displayName = typeof name === "string" && name.trim() ? name.trim() : "Google User";
     
-    if (!googleId || !email) {
+    if (!googleId || !normalizedEmail) {
       return res.status(400).json({ message: "Invalid Google authentication data" });
     }
 
@@ -215,25 +252,33 @@ router.post("/oauth/google", async (req, res) => {
     
     if (!user) {
       // Check if email is already used
-      user = await User.findOne({ email });
+      user = await User.findOne({ email: normalizedEmail });
       
       if (user) {
         // Link Google account to existing user
         user.googleId = googleId;
         user.avatar = user.avatar || picture;
-        user.displayName = user.displayName || name;
+        user.displayName = user.displayName || displayName;
         await user.save();
       } else {
         // Create new user with Google - mark as needing profile setup
         isNewUser = true;
         
         // Create a temporary username (will be updated during profile setup)
-        const tempUsername = `google_${googleId.slice(-8)}`;
+        const baseUsername = `google_${String(googleId).slice(-8).toLowerCase()}`;
+        let tempUsername = baseUsername;
+        let suffix = 1;
+
+        // Ensure username uniqueness to avoid duplicate key errors.
+        while (await User.exists({ username: tempUsername })) {
+          tempUsername = `${baseUsername}_${suffix}`;
+          suffix += 1;
+        }
         
         user = await User.create({
           username: tempUsername,
-          email,
-          displayName: name,
+          email: normalizedEmail,
+          displayName,
           avatar: picture,
           googleId,
           authProvider: 'google',
@@ -260,18 +305,34 @@ router.post("/oauth/google", async (req, res) => {
 // @access  Public
 router.post("/oauth/apple", async (req, res) => {
   try {
-    const { identityToken, user: appleUser } = req.body;
+    const { identityToken, user: appleUser, clientId } = req.body;
     
-    // Decode Apple identity token
-    const base64Url = identityToken.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const payload = JSON.parse(Buffer.from(base64, 'base64').toString());
+    if (!identityToken) {
+      return res.status(400).json({ message: "Identity token is required" });
+    }
+    
+    // Use provided clientId or fall back to environment variable
+    const appBundleId = clientId || process.env.APPLE_CLIENT_ID;
+    if (!appBundleId) {
+      console.error("Apple OAuth error: No client ID configured");
+      return res.status(500).json({ message: "Apple Sign In not configured" });
+    }
+    
+    // Cryptographically verify Apple identity token
+    let payload;
+    try {
+      payload = await verifyAppleToken(identityToken, appBundleId);
+    } catch (verifyError) {
+      console.error("Apple token verification failed:", verifyError);
+      return res.status(401).json({ message: "Invalid identity token" });
+    }
     
     const { sub: appleId, email } = payload;
     const name = appleUser?.name ? `${appleUser.name.firstName || ''} ${appleUser.name.lastName || ''}`.trim() : null;
 
     // Find or create user
     let user = await User.findOne({ appleId });
+    let isNewUser = false;
     
     if (!user) {
       if (email) {
@@ -285,6 +346,7 @@ router.post("/oauth/apple", async (req, res) => {
         await user.save();
       } else {
         // Create new user with Apple
+        isNewUser = true;
         const baseName = (email?.split('@')[0] || 'apple_user').toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 20);
         let uniqueUsername = baseName;
         let counter = 1;
@@ -309,6 +371,7 @@ router.post("/oauth/apple", async (req, res) => {
     res.json({
       user: user.toJSON(),
       token,
+      isNewUser,
     });
   } catch (error) {
     console.error("Apple OAuth error:", error);

@@ -8,6 +8,7 @@ import './AuthPages.css';
 function SignIn() {
   const navigate = useNavigate();
   const location = useLocation();
+  const isGoogleConfigured = !!import.meta.env.VITE_GOOGLE_CLIENT_ID && import.meta.env.VITE_GOOGLE_CLIENT_ID !== 'YOUR_GOOGLE_CLIENT_ID';
   
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -21,6 +22,16 @@ function SignIn() {
   const [successMessage, setSuccessMessage] = useState(location.state?.message || '');
   const [socialLoading, setSocialLoading] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Show session expired message if redirected due to expired session
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('sessionExpired') === 'true') {
+      setGeneralError('Your session has expired. Please sign in again.');
+      // Clean up the URL
+      window.history.replaceState({}, '', '/signin');
+    }
+  }, [location.search]);
 
   // Auto sign-in if already authenticated
   useEffect(() => {
@@ -52,7 +63,16 @@ function SignIn() {
         const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
           headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
         });
+
+        if (!userInfoResponse.ok) {
+          throw new Error('Unable to retrieve Google profile. Check OAuth app configuration and authorized origins.');
+        }
+
         const userInfo = await userInfoResponse.json();
+
+        if (!userInfo.sub || !userInfo.email) {
+          throw new Error('Google did not return required profile information.');
+        }
         
         // Send user info directly to backend
         const result = await authService.signInWithGoogle({
@@ -61,6 +81,14 @@ function SignIn() {
           name: userInfo.name,
           picture: userInfo.picture,
         });
+        
+        // Check for pending join code
+        const pendingJoinCode = sessionStorage.getItem('pendingJoinCode');
+        if (pendingJoinCode) {
+          sessionStorage.removeItem('pendingJoinCode');
+          navigate(`/join/${pendingJoinCode}`);
+          return;
+        }
         
         // Redirect new users to profile setup, existing users to dashboard
         if (result.isNewUser) {
@@ -81,6 +109,14 @@ function SignIn() {
       setSocialLoading(null);
     },
   });
+
+  const handleGoogleLogin = () => {
+    if (!isGoogleConfigured) {
+      setGeneralError('Google sign-in is not configured. Set VITE_GOOGLE_CLIENT_ID and restart the frontend.');
+      return;
+    }
+    googleLogin();
+  };
 
   // Handle browser back gesture/button
   useEffect(() => {
@@ -127,6 +163,15 @@ function SignIn() {
         username: formData.username,
         password: formData.password,
       });
+      
+      // Check for pending join code
+      const pendingJoinCode = sessionStorage.getItem('pendingJoinCode');
+      if (pendingJoinCode) {
+        sessionStorage.removeItem('pendingJoinCode');
+        navigate(`/join/${pendingJoinCode}`);
+        return;
+      }
+      
       navigate('/dashboard');
     } catch (error) {
       setGeneralError(error.message || 'Invalid username or password.');
@@ -263,8 +308,8 @@ function SignIn() {
             <button 
               type="button" 
               className="social-btn social-btn--full" 
-              onClick={() => googleLogin()}
-              disabled={socialLoading === 'google'}
+              onClick={handleGoogleLogin}
+              disabled={socialLoading === 'google' || !isGoogleConfigured}
             >
               <svg viewBox="0 0 24 24" width="20" height="20">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -272,7 +317,7 @@ function SignIn() {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              {socialLoading === 'google' ? 'Signing in...' : 'Continue with Google'}
+              {!isGoogleConfigured ? 'Google Sign-In Not Configured' : socialLoading === 'google' ? 'Signing in...' : 'Continue with Google'}
             </button>
           </div>
 

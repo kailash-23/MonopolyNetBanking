@@ -137,6 +137,11 @@ userSchema.methods.toJSON = function () {
   return obj;
 };
 
+// Indexes for common queries
+userSchema.index({ friends: 1 }); // Find users with a specific friend
+userSchema.index({ "friendRequests.received.from": 1 }); // Find pending friend requests
+userSchema.index({ username: "text", displayName: "text" }); // Text search for user search
+
 const User = mongoose.model("User", userSchema);
 
 export default User;

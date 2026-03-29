@@ -1,5 +1,6 @@
 import express from "express";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import Game from "../models/Game.js";
 import User from "../models/User.js";
 
@@ -305,7 +306,7 @@ router.get("/saved", authenticate, async (req, res) => {
 // @route   GET /api/games/:code
 // @desc    Get game by code
 // @access  Private
-router.get("/:code", authenticate, async (req, res) => {
+router.get("/:code([A-Za-z0-9]{6})", authenticate, async (req, res) => {
   try {
     const game = await Game.findOne({ code: req.params.code.toUpperCase() })
       .populate("players.user", "username displayName avatar uid")
@@ -597,47 +598,69 @@ router.post("/start", authenticate, async (req, res) => {
 // @desc    Transfer money between players or from/to bank
 // @access  Private
 router.post("/transfer", authenticate, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
   try {
     const { gameId, toPlayerId, amount, type, description } = req.body;
 
     if (!amount || amount <= 0) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ message: "Invalid amount" });
     }
 
-    const game = await Game.findById(gameId);
+    // Use findOneAndUpdate with session for atomicity
+    const game = await Game.findById(gameId).session(session);
     if (!game) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({ message: "Game not found" });
     }
 
     if (game.status !== "in_progress") {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ message: "Game is not in progress" });
     }
 
-    const fromPlayer = game.players.find(
+    const fromPlayerIndex = game.players.findIndex(
       (p) => p.user.toString() === req.user._id.toString()
     );
 
-    if (!fromPlayer) {
+    if (fromPlayerIndex === -1) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ message: "You are not in this game" });
     }
 
+    const fromPlayer = game.players[fromPlayerIndex];
     let toPlayer = null;
+    let toPlayerIndex = -1;
     
     if (type === "transfer" || type === "rent") {
       // Player to player transfer
       if (!toPlayerId) {
+        await session.abortTransaction();
+        session.endSession();
         return res.status(400).json({ message: "Recipient is required" });
       }
 
-      toPlayer = game.players.find(
+      toPlayerIndex = game.players.findIndex(
         (p) => p.user.toString() === toPlayerId
       );
 
-      if (!toPlayer) {
+      if (toPlayerIndex === -1) {
+        await session.abortTransaction();
+        session.endSession();
         return res.status(400).json({ message: "Recipient not found in game" });
       }
 
+      toPlayer = game.players[toPlayerIndex];
+
       if (fromPlayer.balance < amount) {
+        await session.abortTransaction();
+        session.endSession();
         return res.status(400).json({ message: "Insufficient balance" });
       }
 
@@ -646,6 +669,8 @@ router.post("/transfer", authenticate, async (req, res) => {
     } else if (type === "bank_pay" || type === "tax" || type === "purchase") {
       // Player pays bank
       if (fromPlayer.balance < amount) {
+        await session.abortTransaction();
+        session.endSession();
         return res.status(400).json({ message: "Insufficient balance" });
       }
       fromPlayer.balance -= amount;
@@ -665,7 +690,10 @@ router.post("/transfer", authenticate, async (req, res) => {
 
     // Update activity timestamp
     game.lastActivity = new Date();
-    await game.save();
+    await game.save({ session });
+    
+    await session.commitTransaction();
+    session.endSession();
 
     await game.populate("players.user", "username displayName avatar uid");
 
@@ -675,6 +703,8 @@ router.post("/transfer", authenticate, async (req, res) => {
       transaction: game.transactions[game.transactions.length - 1],
     });
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
     console.error("Transfer error:", error);
     res.status(500).json({ message: "Error processing transfer", error: error.message });
   }
@@ -1231,7 +1261,7 @@ router.post("/resume", authenticate, async (req, res) => {
     // Store reference to original game's player balances for rejoining players
     newGame.resumedFrom = oldGame._id;
     newGame.originalPlayerBalances = oldGame.players.map((p) => ({
-      odishUser: p.user._id || p.user,
+      user: p.user._id || p.user,
       balance: p.balance,
       color: p.color,
     }));

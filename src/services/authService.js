@@ -4,6 +4,8 @@
  * Handles authentication operations with the backend API.
  */
 
+import { authFetch } from "../utils/apiClient";
+
 // Use environment variable for API URL, fallback to relative URL (proxied by Vite in dev)
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const API_URL = `${API_BASE}/api/auth`;
@@ -22,13 +24,21 @@ export const authService = {
    * @throws {Error} - Error message on failure
    */
   async signUp({ username, password }) {
-    const response = await fetch(`${API_URL}/signup`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ username, password }),
-    });
+    let response;
+    try {
+      response = await authFetch(`${API_URL}/signup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error("Cannot reach server. Please make sure backend is running on port 4000.");
+      }
+      throw error;
+    }
 
     const data = await response.json();
 
@@ -48,13 +58,21 @@ export const authService = {
    * @throws {Error} - Error message on failure
    */
   async signIn({ username, password }) {
-    const response = await fetch(`${API_URL}/signin`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ username, password }),
-    });
+    let response;
+    try {
+      response = await authFetch(`${API_URL}/signin`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error("Cannot reach server. Please make sure backend is running on port 4000.");
+      }
+      throw error;
+    }
 
     const data = await response.json();
 
@@ -109,13 +127,21 @@ export const authService = {
    * @returns {Promise<Object>} - User data, token, and isNewUser flag on success
    */
   async signInWithGoogle(userInfo) {
-    const response = await fetch(`${API_URL}/oauth/google`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(userInfo),
-    });
+    let response;
+    try {
+      response = await authFetch(`${API_URL}/oauth/google`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userInfo),
+      });
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error("Cannot reach server. Please make sure backend is running on port 4000.");
+      }
+      throw error;
+    }
 
     const data = await response.json();
 
@@ -137,7 +163,7 @@ export const authService = {
   async completeProfile({ username, displayName }) {
     const token = this.getToken();
     
-    const response = await fetch(`${API_URL}/complete-profile`, {
+    const response = await authFetch(`${API_URL}/complete-profile`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -164,7 +190,7 @@ export const authService = {
    * @returns {Promise<Object>} - Availability status
    */
   async checkUsername(username) {
-    const response = await fetch(`${API_URL}/check-username`, {
+    const response = await authFetch(`${API_URL}/check-username`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -181,7 +207,7 @@ export const authService = {
    * @returns {Promise<Object>} - User data and token on success
    */
   async signInWithApple(identityToken, user) {
-    const response = await fetch(`${API_URL}/oauth/apple`, {
+    const response = await authFetch(`${API_URL}/oauth/apple`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -209,7 +235,7 @@ export const authService = {
   async updateProfile(profileData) {
     const token = this.getToken();
     
-    const response = await fetch(`${API_URL}/profile`, {
+    const response = await authFetch(`${API_URL}/profile`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -236,7 +262,7 @@ export const authService = {
   async changePassword({ currentPassword, newPassword }) {
     const token = this.getToken();
     
-    const response = await fetch(`${API_URL}/password`, {
+    const response = await authFetch(`${API_URL}/password`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -262,7 +288,7 @@ export const authService = {
   async updateSettings(settings) {
     const token = this.getToken();
     
-    const response = await fetch(`${API_URL}/settings`, {
+    const response = await authFetch(`${API_URL}/settings`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -287,7 +313,7 @@ export const authService = {
    * @returns {Promise<Object>} - Success message
    */
   async sendPasswordReset(email) {
-    const response = await fetch(`${API_URL}/password-reset`, {
+    const response = await authFetch(`${API_URL}/password-reset`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -311,7 +337,7 @@ export const authService = {
   async getStats() {
     const token = this.getToken();
     
-    const response = await fetch(`${API_URL}/stats`, {
+    const response = await authFetch(`${API_URL}/stats`, {
       headers: {
         "Authorization": `Bearer ${token}`,
       },
@@ -333,7 +359,7 @@ export const authService = {
   async refreshUser() {
     const token = this.getToken();
     
-    const response = await fetch(`${API_URL}/me`, {
+    const response = await authFetch(`${API_URL}/me`, {
       headers: {
         "Authorization": `Bearer ${token}`,
       },
@@ -358,7 +384,7 @@ export const authService = {
   async getFriends() {
     const token = this.getToken();
     
-    const response = await fetch(`${API_BASE}/api/friends/list`, {
+    const response = await authFetch(`${API_BASE}/api/friends/list`, {
       headers: {
         "Authorization": `Bearer ${token}`,
       },
@@ -381,7 +407,7 @@ export const authService = {
   async searchUsers(query) {
     const token = this.getToken();
     
-    const response = await fetch(`${API_BASE}/api/friends/search?query=${encodeURIComponent(query)}`, {
+    const response = await authFetch(`${API_BASE}/api/friends/search?query=${encodeURIComponent(query)}`, {
       headers: {
         "Authorization": `Bearer ${token}`,
       },
@@ -404,7 +430,7 @@ export const authService = {
   async sendFriendRequest(targetUserId) {
     const token = this.getToken();
     
-    const response = await fetch(`${API_BASE}/api/friends/request`, {
+    const response = await authFetch(`${API_BASE}/api/friends/request`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -430,7 +456,7 @@ export const authService = {
   async acceptFriendRequest(requesterId) {
     const token = this.getToken();
     
-    const response = await fetch(`${API_BASE}/api/friends/accept`, {
+    const response = await authFetch(`${API_BASE}/api/friends/accept`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -456,7 +482,7 @@ export const authService = {
   async rejectFriendRequest(requesterId) {
     const token = this.getToken();
     
-    const response = await fetch(`${API_BASE}/api/friends/reject`, {
+    const response = await authFetch(`${API_BASE}/api/friends/reject`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -482,7 +508,7 @@ export const authService = {
   async cancelFriendRequest(targetUserId) {
     const token = this.getToken();
     
-    const response = await fetch(`${API_BASE}/api/friends/cancel`, {
+    const response = await authFetch(`${API_BASE}/api/friends/cancel`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -508,7 +534,7 @@ export const authService = {
   async removeFriend(friendId) {
     const token = this.getToken();
     
-    const response = await fetch(`${API_BASE}/api/friends/remove`, {
+    const response = await authFetch(`${API_BASE}/api/friends/remove`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -537,7 +563,7 @@ export const authService = {
   async sendGameInvite(targetUserId, gameId, gameCode, gameName) {
     const token = this.getToken();
     
-    const response = await fetch(`${API_BASE}/api/friends/invite-to-game`, {
+    const response = await authFetch(`${API_BASE}/api/friends/invite-to-game`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -562,7 +588,7 @@ export const authService = {
   async getGameInvites() {
     const token = this.getToken();
     
-    const response = await fetch(`${API_BASE}/api/friends/game-invites`, {
+    const response = await authFetch(`${API_BASE}/api/friends/game-invites`, {
       headers: {
         "Authorization": `Bearer ${token}`,
       },
@@ -585,7 +611,7 @@ export const authService = {
   async dismissGameInvite(inviteId) {
     const token = this.getToken();
     
-    const response = await fetch(`${API_BASE}/api/friends/dismiss-invite`, {
+    const response = await authFetch(`${API_BASE}/api/friends/dismiss-invite`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

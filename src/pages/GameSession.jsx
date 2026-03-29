@@ -62,6 +62,13 @@ function ScrollWheelPicker({ value, onChange, max, min = 1, step = 1 }) {
   const [visualIndex, setVisualIndex] = useState(0);
   const inputRef = useRef(null);
 
+  // Cleanup scroll timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    };
+  }, []);
+
   // Generate values: [min, min+step, min+2*step, ...] up to max
   const values = useMemo(() => {
     const vals = [];
@@ -216,7 +223,7 @@ function GameSession() {
   const [expandedPropCard, setExpandedPropCard] = useState(null);
 
   // Get game ID (handles both _id and id from API)
-  const gameId = game?._id || gameId;
+  const gameId = game?._id || game?.id;
 
   // ---- Data loading ----
   const loadGame = useCallback(async () => {
@@ -246,6 +253,21 @@ function GameSession() {
   }, [code, user?._id]);
 
   useEffect(() => { if (!game && code) loadGame(); }, [game, code, loadGame]);
+
+  useEffect(() => {
+    if (!game) return;
+
+    if (game.status === 'waiting') {
+      navigate(`/lobby/${game.code || code}`, { state: { game }, replace: true });
+      return;
+    }
+
+    const isParticipant = game.players?.some((player) => String(player.user?._id || player.user) === String(user?._id));
+    if (!isParticipant) {
+      setError('You are not part of this game session.');
+      navigate('/dashboard', { replace: true });
+    }
+  }, [game, code, navigate, user?._id]);
 
   useEffect(() => {
     if (game && game.status === 'in_progress') {

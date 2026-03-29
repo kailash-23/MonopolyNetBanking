@@ -1,3 +1,5 @@
+import { authFetch } from "../utils/apiClient";
+
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const API_URL = `${API_BASE}/api/games`;
 
@@ -27,7 +29,7 @@ const parseResponse = async (response) => {
 
 // Create a new game
 export const createGame = async (gameData) => {
-  const response = await fetch(`${API_URL}/create`, {
+  const response = await authFetch(`${API_URL}/create`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify(gameData),
@@ -42,7 +44,7 @@ export const createGame = async (gameData) => {
 
 // Join a game by code
 export const joinGame = async (code) => {
-  const response = await fetch(`${API_URL}/join`, {
+  const response = await authFetch(`${API_URL}/join`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ code }),
@@ -57,7 +59,7 @@ export const joinGame = async (code) => {
 
 // Leave a game
 export const leaveGame = async (gameId) => {
-  const response = await fetch(`${API_URL}/leave`, {
+  const response = await authFetch(`${API_URL}/leave`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ gameId }),
@@ -72,7 +74,7 @@ export const leaveGame = async (gameId) => {
 
 // Get game by code
 export const getGame = async (code) => {
-  const response = await fetch(`${API_URL}/${code}`, {
+  const response = await authFetch(`${API_URL}/${code}`, {
     headers: getAuthHeaders(),
   });
 
@@ -85,7 +87,7 @@ export const getGame = async (code) => {
 
 // Get user's active game
 export const getActiveGame = async () => {
-  const response = await fetch(`${API_URL}/my/active`, {
+  const response = await authFetch(`${API_URL}/my/active`, {
     headers: getAuthHeaders(),
   });
 
@@ -98,7 +100,7 @@ export const getActiveGame = async () => {
 
 // Toggle ready status
 export const toggleReady = async (gameId) => {
-  const response = await fetch(`${API_URL}/ready`, {
+  const response = await authFetch(`${API_URL}/ready`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ gameId }),
@@ -113,7 +115,7 @@ export const toggleReady = async (gameId) => {
 
 // Select a Monopoly token
 export const selectToken = async (gameId, token) => {
-  const response = await fetch(`${API_URL}/select-token`, {
+  const response = await authFetch(`${API_URL}/select-token`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ gameId, token }),
@@ -128,7 +130,7 @@ export const selectToken = async (gameId, token) => {
 
 // Update game settings (host only)
 export const updateGameSettings = async (gameId, settings) => {
-  const response = await fetch(`${API_URL}/settings`, {
+  const response = await authFetch(`${API_URL}/settings`, {
     method: "PUT",
     headers: getAuthHeaders(),
     body: JSON.stringify({ gameId, ...settings }),
@@ -143,7 +145,7 @@ export const updateGameSettings = async (gameId, settings) => {
 
 // Start the game (host only)
 export const startGame = async (gameId) => {
-  const response = await fetch(`${API_URL}/start`, {
+  const response = await authFetch(`${API_URL}/start`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ gameId }),
@@ -158,7 +160,7 @@ export const startGame = async (gameId) => {
 
 // Transfer money
 export const transferMoney = async (gameId, toPlayerId, amount, type, description) => {
-  const response = await fetch(`${API_URL}/transfer`, {
+  const response = await authFetch(`${API_URL}/transfer`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ gameId, toPlayerId, amount, type, description }),
@@ -173,7 +175,7 @@ export const transferMoney = async (gameId, toPlayerId, amount, type, descriptio
 
 // End the game (host only)
 export const endGame = async (gameId) => {
-  const response = await fetch(`${API_URL}/end`, {
+  const response = await authFetch(`${API_URL}/end`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ gameId }),
@@ -188,7 +190,7 @@ export const endGame = async (gameId) => {
 
 // Request GO salary (requires approval)
 export const requestGoSalary = async (gameId) => {
-  const response = await fetch(`${API_URL}/request-go`, {
+  const response = await authFetch(`${API_URL}/request-go`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ gameId }),
@@ -203,7 +205,7 @@ export const requestGoSalary = async (gameId) => {
 
 // Request bank receive (requires approval)
 export const requestBankReceive = async (gameId, amount, description) => {
-  const response = await fetch(`${API_URL}/request-bank-receive`, {
+  const response = await authFetch(`${API_URL}/request-bank-receive`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ gameId, amount, description }),
@@ -218,7 +220,7 @@ export const requestBankReceive = async (gameId, amount, description) => {
 
 // Approve or deny a pending request
 export const approveRequest = async (gameId, requestId, approved) => {
-  const response = await fetch(`${API_URL}/approve-request`, {
+  const response = await authFetch(`${API_URL}/approve-request`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ gameId, requestId, approved }),
@@ -233,7 +235,7 @@ export const approveRequest = async (gameId, requestId, approved) => {
 
 // Update game activity timestamp
 export const updateActivity = async (gameId) => {
-  const response = await fetch(`${API_URL}/activity`, {
+  const response = await authFetch(`${API_URL}/activity`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ gameId }),
@@ -248,7 +250,7 @@ export const updateActivity = async (gameId) => {
 
 // Check if game is idle
 export const checkIdleStatus = async (gameId) => {
-  const response = await fetch(`${API_URL}/check-idle/${gameId}`, {
+  const response = await authFetch(`${API_URL}/check-idle/${gameId}`, {
     headers: getAuthHeaders(),
   });
 
@@ -261,7 +263,7 @@ export const checkIdleStatus = async (gameId) => {
 
 // Get saved games (idle-timed-out games)
 export const getSavedGames = async () => {
-  const response = await fetch(`${API_URL}/saved`, {
+  const response = await authFetch(`${API_URL}/saved`, {
     headers: getAuthHeaders(),
   });
 
@@ -274,7 +276,7 @@ export const getSavedGames = async () => {
 
 // Resume a saved game
 export const resumeGame = async (gameId) => {
-  const response = await fetch(`${API_URL}/resume`, {
+  const response = await authFetch(`${API_URL}/resume`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ gameId }),
@@ -289,7 +291,7 @@ export const resumeGame = async (gameId) => {
 
 // Delete a saved game
 export const deleteSavedGame = async (gameId) => {
-  const response = await fetch(`${API_URL}/saved/${gameId}`, {
+  const response = await authFetch(`${API_URL}/saved/${gameId}`, {
     method: "DELETE",
     headers: getAuthHeaders(),
   });
@@ -303,7 +305,7 @@ export const deleteSavedGame = async (gameId) => {
 
 // Save game for later (host only)
 export const saveGame = async (gameId) => {
-  const response = await fetch(`${API_URL}/save`, {
+  const response = await authFetch(`${API_URL}/save`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ gameId }),
@@ -317,7 +319,7 @@ export const saveGame = async (gameId) => {
 };
 
 export const buyProperty = async (gameId, propertyName, colorGroup, price) => {
-  const response = await fetch(`${API_URL}/property/buy`, {
+  const response = await authFetch(`${API_URL}/property/buy`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ gameId, propertyName, colorGroup, price }),
@@ -331,7 +333,7 @@ export const buyProperty = async (gameId, propertyName, colorGroup, price) => {
 };
 
 export const sellProperty = async (gameId, propertyName, price) => {
-  const response = await fetch(`${API_URL}/property/sell`, {
+  const response = await authFetch(`${API_URL}/property/sell`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ gameId, propertyName, price }),
@@ -345,7 +347,7 @@ export const sellProperty = async (gameId, propertyName, price) => {
 };
 
 export const manageHouse = async (gameId, propertyName, action, cost) => {
-  const response = await fetch(`${API_URL}/property/house`, {
+  const response = await authFetch(`${API_URL}/property/house`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ gameId, propertyName, action, cost }),
@@ -359,7 +361,7 @@ export const manageHouse = async (gameId, propertyName, action, cost) => {
 };
 
 export const mortgageProperty = async (gameId, propertyName, action, value) => {
-  const response = await fetch(`${API_URL}/property/mortgage`, {
+  const response = await authFetch(`${API_URL}/property/mortgage`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ gameId, propertyName, action, value }),
