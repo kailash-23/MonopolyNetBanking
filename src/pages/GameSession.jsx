@@ -7,36 +7,36 @@ import mrMonopolyImg from '../mrMonopoly.png';
 import { TokenIcon } from '../utils/monopolyTokens';
 import './GameSession.css';
 
-// Monopoly Deluxe property data (UK edition)
+// Monopoly Deluxe property data (UK edition) with house costs
 const MONOPOLY_PROPERTIES = [
-  { name: 'Old Kent Road', colorGroup: 'brown', price: 60 },
-  { name: 'Whitechapel Road', colorGroup: 'brown', price: 60 },
-  { name: 'The Angel Islington', colorGroup: 'lightblue', price: 100 },
-  { name: 'Euston Road', colorGroup: 'lightblue', price: 100 },
-  { name: 'Pentonville Road', colorGroup: 'lightblue', price: 120 },
-  { name: 'Pall Mall', colorGroup: 'pink', price: 140 },
-  { name: 'Whitehall', colorGroup: 'pink', price: 140 },
-  { name: 'Northumberland Avenue', colorGroup: 'pink', price: 160 },
-  { name: 'Bow Street', colorGroup: 'orange', price: 180 },
-  { name: 'Marlborough Street', colorGroup: 'orange', price: 180 },
-  { name: 'Vine Street', colorGroup: 'orange', price: 200 },
-  { name: 'Strand', colorGroup: 'red', price: 220 },
-  { name: 'Fleet Street', colorGroup: 'red', price: 220 },
-  { name: 'Trafalgar Square', colorGroup: 'red', price: 240 },
-  { name: 'Leicester Square', colorGroup: 'yellow', price: 260 },
-  { name: 'Coventry Street', colorGroup: 'yellow', price: 260 },
-  { name: 'Piccadilly', colorGroup: 'yellow', price: 280 },
-  { name: 'Regent Street', colorGroup: 'green', price: 300 },
-  { name: 'Oxford Street', colorGroup: 'green', price: 300 },
-  { name: 'Bond Street', colorGroup: 'green', price: 320 },
-  { name: 'Park Lane', colorGroup: 'darkblue', price: 350 },
-  { name: 'Mayfair', colorGroup: 'darkblue', price: 400 },
-  { name: 'Kings Cross Station', colorGroup: 'station', price: 200 },
-  { name: 'Marylebone Station', colorGroup: 'station', price: 200 },
-  { name: 'Fenchurch St Station', colorGroup: 'station', price: 200 },
-  { name: 'Liverpool St Station', colorGroup: 'station', price: 200 },
-  { name: 'Electric Company', colorGroup: 'utility', price: 150 },
-  { name: 'Water Works', colorGroup: 'utility', price: 150 },
+  { name: 'Old Kent Road', colorGroup: 'brown', price: 60, houseCost: 50 },
+  { name: 'Whitechapel Road', colorGroup: 'brown', price: 60, houseCost: 50 },
+  { name: 'The Angel Islington', colorGroup: 'lightblue', price: 100, houseCost: 50 },
+  { name: 'Euston Road', colorGroup: 'lightblue', price: 100, houseCost: 50 },
+  { name: 'Pentonville Road', colorGroup: 'lightblue', price: 120, houseCost: 50 },
+  { name: 'Pall Mall', colorGroup: 'pink', price: 140, houseCost: 100 },
+  { name: 'Whitehall', colorGroup: 'pink', price: 140, houseCost: 100 },
+  { name: 'Northumberland Avenue', colorGroup: 'pink', price: 160, houseCost: 100 },
+  { name: 'Bow Street', colorGroup: 'orange', price: 180, houseCost: 100 },
+  { name: 'Marlborough Street', colorGroup: 'orange', price: 180, houseCost: 100 },
+  { name: 'Vine Street', colorGroup: 'orange', price: 200, houseCost: 100 },
+  { name: 'Strand', colorGroup: 'red', price: 220, houseCost: 150 },
+  { name: 'Fleet Street', colorGroup: 'red', price: 220, houseCost: 150 },
+  { name: 'Trafalgar Square', colorGroup: 'red', price: 240, houseCost: 150 },
+  { name: 'Leicester Square', colorGroup: 'yellow', price: 260, houseCost: 150 },
+  { name: 'Coventry Street', colorGroup: 'yellow', price: 260, houseCost: 150 },
+  { name: 'Piccadilly', colorGroup: 'yellow', price: 280, houseCost: 150 },
+  { name: 'Regent Street', colorGroup: 'green', price: 300, houseCost: 200 },
+  { name: 'Oxford Street', colorGroup: 'green', price: 300, houseCost: 200 },
+  { name: 'Bond Street', colorGroup: 'green', price: 320, houseCost: 200 },
+  { name: 'Park Lane', colorGroup: 'darkblue', price: 350, houseCost: 200 },
+  { name: 'Mayfair', colorGroup: 'darkblue', price: 400, houseCost: 200 },
+  { name: 'Kings Cross Station', colorGroup: 'station', price: 200, houseCost: 0 },
+  { name: 'Marylebone Station', colorGroup: 'station', price: 200, houseCost: 0 },
+  { name: 'Fenchurch St Station', colorGroup: 'station', price: 200, houseCost: 0 },
+  { name: 'Liverpool St Station', colorGroup: 'station', price: 200, houseCost: 0 },
+  { name: 'Electric Company', colorGroup: 'utility', price: 150, houseCost: 0 },
+  { name: 'Water Works', colorGroup: 'utility', price: 150, houseCost: 0 },
 ];
 
 const COLOR_GROUP_COLORS = {
@@ -457,7 +457,9 @@ function GameSession() {
 
   const handleManageHouse = async (propertyName, action) => {
     try { soundService.playClick();
-      const data = await gameService.manageHouse(gameId, propertyName, action);
+      const prop = MONOPOLY_PROPERTIES.find(p => p.name === propertyName);
+      const cost = prop?.houseCost || 0;
+      const data = await gameService.manageHouse(gameId, propertyName, action, cost);
       setGame(prev => ({ ...prev, players: data.players }));
       if (action === 'add') soundService.playSuccess();
     } catch (err) { setError(err.message); }
@@ -510,14 +512,45 @@ function GameSession() {
     return groups;
   }, [currentPlayer?.properties]);
 
+  // Calculate player net worth: balance + property values + house values
+  const calculateNetWorth = (player) => {
+    let netWorth = player.balance || 0;
+    (player.properties || []).forEach(prop => {
+      const propData = MONOPOLY_PROPERTIES.find(p => p.name === prop.name);
+      if (propData) {
+        netWorth += propData.price; // Add property value
+        netWorth += (prop.houses || 0) * (propData.houseCost || 0); // Add house values
+        if (prop.mortgaged) netWorth -= Math.floor(propData.price / 2); // Subtract mortgage loss
+      }
+    });
+    return netWorth;
+  };
+
+  // Calculate player stats with detailed breakdown
+  const calculatePlayerStats = (player) => {
+    let spent = 0, propertyValue = 0, housesValue = 0;
+    (player.properties || []).forEach(prop => {
+      const propData = MONOPOLY_PROPERTIES.find(p => p.name === prop.name);
+      if (propData) {
+        propertyValue += propData.price;
+        housesValue += (prop.houses || 0) * (propData.houseCost || 0);
+        spent += propData.price + ((prop.houses || 0) * (propData.houseCost || 0));
+      }
+    });
+    return { netWorth: calculateNetWorth(player), propertyValue, housesValue, spent };
+  };
+
   const gameStats = useMemo(() => {
     if (!game) return null;
+    const playerStats = game.players?.map(p => calculatePlayerStats(p)) || [];
     return {
       totalMoney: game.players?.reduce((s, p) => s + p.balance, 0) || 0,
       totalProperties: game.players?.reduce((s, p) => s + (p.properties?.length || 0), 0) || 0,
       totalHouses: game.players?.reduce((s, p) => s + (p.properties?.reduce((h, pr) => h + (pr.houses || 0), 0) || 0), 0) || 0,
       duration: game.startedAt ? Math.floor((Date.now() - new Date(game.startedAt).getTime()) / 60000) : 0,
       totalTransactions: game.transactions?.length || 0,
+      playerStats,
+      topNetWorth: Math.max(...playerStats.map(s => s.netWorth)),
     };
   }, [game]);
 
@@ -804,7 +837,7 @@ function GameSession() {
                                 <div className="prop-card-actions" onClick={e => e.stopPropagation()}>
                                   {!prop.mortgaged && (
                                     <>
-                                      <button className="pca-btn add" onClick={() => handleManageHouse(prop.name, 'add')} disabled={prop.houses >= 5}>+🏠</button>
+                                      {(() => { const propData = MONOPOLY_PROPERTIES.find(p => p.name === prop.name); return <button className="pca-btn add" onClick={() => handleManageHouse(prop.name, 'add')} disabled={prop.houses >= 5 || currentPlayer.balance < (propData?.houseCost || 0)}>+🏠 £{propData?.houseCost || 0}</button>; })()}
                                       {prop.houses > 0 && <button className="pca-btn remove" onClick={() => handleManageHouse(prop.name, 'remove')}>-🏠</button>}
                                       <button className="pca-btn mortgage" onClick={() => handleMortgage(prop.name, 'mortgage')}>
                                         Mortgage £{mortgageVal}
