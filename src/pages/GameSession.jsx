@@ -666,15 +666,13 @@ function GameSession() {
             {(game?.transactions || []).slice().reverse().slice(0, 3).map((tx, idx) => {
               const fromPlayer = game?.players?.find(p => String(p.user?._id || p.user) === String(tx.from));
               const toPlayer = game?.players?.find(p => String(p.user?._id || p.user) === String(tx.to));
-              const isBankTx = tx.type === 'bank_pay' || tx.type === 'bank_receive' || tx.type === 'go_salary';
-              
-              // For bank transactions, check type; for player transactions, check IDs
-              const isIncoming = isBankTx 
-                ? (tx.type === 'bank_receive' || tx.type === 'go_salary') && String(tx.to?._id || tx.to) === String(user._id)
-                : String(tx.to?._id || tx.to) === String(user._id);
-              const isOutgoing = isBankTx 
-                ? tx.type === 'bank_pay' && String(tx.from?._id || tx.from) === String(user._id)
-                : String(tx.from?._id || tx.from) === String(user._id);
+              const txFromId = tx.from ? String(tx.from) : null;
+              const txToId = tx.to ? String(tx.to) : null;
+              const userId = String(user._id);
+              const isIncoming = txToId === userId;
+              const isOutgoing = txFromId === userId;
+              const fromName = tx.from ? (fromPlayer?.user?.displayName || fromPlayer?.user?.username || 'Unknown') : 'Bank';
+              const toName = tx.to ? (toPlayer?.user?.displayName || toPlayer?.user?.username || 'Unknown') : 'Bank';
               
               let icon = '💸';
               if (tx.type === 'go_salary') icon = '🎯';
@@ -686,9 +684,7 @@ function GameSession() {
                   <span className="recent-icon">{icon}</span>
                   <div className="recent-info">
                     <span className="recent-parties">
-                      {isBankTx 
-                        ? (tx.type === 'bank_pay' ? `${fromPlayer?.user?.displayName || 'You'} → Bank` : `Bank → ${toPlayer?.user?.displayName || 'You'}`)
-                        : `${fromPlayer?.user?.displayName || '?'} → ${toPlayer?.user?.displayName || '?'}`}
+                      {`${fromName} → ${toName}`}
                     </span>
                   </div>
                   <span className={`recent-amount ${isIncoming ? 'positive' : ''} ${isOutgoing ? 'negative' : ''}`}>

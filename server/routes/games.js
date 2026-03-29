@@ -1020,7 +1020,85 @@ router.post("/end", authenticate, async (req, res) => {
 
     // Update stats for all players with net worth calculation
     try {
-      const propertyData = { prices: {'Old Kent Road': 60, 'Whitechapel Road': 60, 'The Angel Islington': 100, 'Euston Road': 100, 'Pentonville Road': 120, 'Pall Mall': 140, 'Whitehall': 140, 'Northumberland Avenue': 160, 'Bow Street': 180, 'Marlborough Street': 180, 'Vine Street': 200, 'Strand': 220, 'Fleet Street': 220, 'Trafalgar Square': 240, 'Leicester Square': 260, 'Coventry Street': 260, 'Piccadilly': 280, 'Regent Street': 300, 'Oxford Street': 300, 'Bond Street': 320, 'Park Lane': 350, 'Mayfair': 400, 'Kings Cross Station': 200, 'Marylebone Station': 200, 'Fenchurch St Station': 200, 'Liverpool St Station': 200, 'Electric Company': 150, 'Water Works': 150}, houseCosts: {'Old Kent Road': 50, 'Whitechapel Road': 50, 'The Angel Islington': 50, 'Euston Road': 50, 'Pentonville Road': 50, 'Pall Mall': 100, 'Whitehall': 100, 'Northumberland Avenue': 100, 'Bow Street': 100, 'Marlborough Street': 100, 'Vine Street': 100, 'Strand': 150, 'Fleet Street': 150, 'Trafalgar Square': 150, 'Leicester Square': 150, 'Coventry Street': 150, 'Piccadilly': 150, 'Regent Street': 200, 'Oxford Street': 200, 'Bond Street': 200, 'Park Lane': 200, 'Mayfair': 200}};      \n      const calculateNetWorth = (player) => {\n        let net = player.balance || 0;\n        (player.properties || []).forEach(p => {\n          if (propertyData.prices[p.name]) net += propertyData.prices[p.name];\n          net += (p.houses || 0) * (propertyData.houseCosts[p.name] || 0);\n          if (p.mortgaged) net -= Math.floor((propertyData.prices[p.name] || 0) / 2);\n        });\n        return net;\n      };\n      \n      const playerNetWorths = game.players.map(p => ({\n        player: p,\n        netWorth: calculateNetWorth(p),\n        propertiesOwned: p.properties?.length || 0,\n        totalHouses: p.properties?.reduce((h, pr) => h + (pr.houses || 0), 0) || 0,\n        spent: (p.properties || []).reduce((s, pr) => s + (propertyData.prices[pr.name] || 0) + ((pr.houses || 0) * (propertyData.houseCosts[pr.name] || 0)), 0)\n      }));\n      \n      const sortedByNetWorth = playerNetWorths.sort((a, b) => b.netWorth - a.netWorth);\n      const topNetWorth = sortedByNetWorth[0]?.netWorth || 0;\n      \n      for (const pwObj of playerNetWorths) {\n        const playerUser = await User.findById(pwObj.player.user._id || pwObj.player.user);\n        if (playerUser) {\n          playerUser.stats.gamesPlayed = (playerUser.stats.gamesPlayed || 0) + 1;\n          const isWinner = pwObj.netWorth === topNetWorth && topNetWorth > 0;\n          if (isWinner) playerUser.stats.gamesWon = (playerUser.stats.gamesWon || 0) + 1;\n          const earnings = pwObj.player.balance - (game.startingBalance || 1500);\n          playerUser.stats.totalEarnings = (playerUser.stats.totalEarnings || 0) + earnings;\n          playerUser.stats.propertiesOwned = (playerUser.stats.propertiesOwned || 0) + pwObj.propertiesOwned;\n          playerUser.stats.totalHousesBuilt = (playerUser.stats.totalHousesBuilt || 0) + pwObj.totalHouses;\n          playerUser.stats.moneySpent = (playerUser.stats.moneySpent || 0) + pwObj.spent;\n          \n          playerUser.gameHistory.push({\n            gameId: game._id.toString(),\n            date: new Date(),\n            players: game.players.length,\n            result: isWinner ? 'Won' : 'Lost',\n            earnings: earnings,\n            netWorth: pwObj.netWorth,\n            propertiesOwned: pwObj.propertiesOwned,\n            houses: pwObj.totalHouses,\n            edition: 'Deluxe',\n          });\n          \n          await playerUser.save();\n        }\n      }\n    } catch (statsErr) {\n      console.error(\"Error updating player stats:\", statsErr);\n    }
+      const propertyPrices = {
+        'Old Kent Road': 60, 'Whitechapel Road': 60, 'The Angel Islington': 100,
+        'Euston Road': 100, 'Pentonville Road': 120, 'Pall Mall': 140, 'Whitehall': 140,
+        'Northumberland Avenue': 160, 'Bow Street': 180, 'Marlborough Street': 180,
+        'Vine Street': 200, 'Strand': 220, 'Fleet Street': 220, 'Trafalgar Square': 240,
+        'Leicester Square': 260, 'Coventry Street': 260, 'Piccadilly': 280,
+        'Regent Street': 300, 'Oxford Street': 300, 'Bond Street': 320,
+        'Park Lane': 350, 'Mayfair': 400, 'Kings Cross Station': 200,
+        'Marylebone Station': 200, 'Fenchurch St Station': 200, 'Liverpool St Station': 200,
+        'Electric Company': 150, 'Water Works': 150,
+      };
+      const houseCosts = {
+        'Old Kent Road': 50, 'Whitechapel Road': 50, 'The Angel Islington': 50,
+        'Euston Road': 50, 'Pentonville Road': 50, 'Pall Mall': 100, 'Whitehall': 100,
+        'Northumberland Avenue': 100, 'Bow Street': 100, 'Marlborough Street': 100,
+        'Vine Street': 100, 'Strand': 150, 'Fleet Street': 150, 'Trafalgar Square': 150,
+        'Leicester Square': 150, 'Coventry Street': 150, 'Piccadilly': 150,
+        'Regent Street': 200, 'Oxford Street': 200, 'Bond Street': 200,
+        'Park Lane': 200, 'Mayfair': 200,
+      };
+
+      const calculateNetWorth = (player) => {
+        let net = player.balance || 0;
+        (player.properties || []).forEach((prop) => {
+          net += propertyPrices[prop.name] || 0;
+          net += (prop.houses || 0) * (houseCosts[prop.name] || 0);
+          if (prop.mortgaged) {
+            net -= Math.floor((propertyPrices[prop.name] || 0) / 2);
+          }
+        });
+        return net;
+      };
+
+      const playerNetWorths = game.players.map((player) => ({
+        player,
+        netWorth: calculateNetWorth(player),
+        propertiesOwned: player.properties?.length || 0,
+        totalHouses: player.properties?.reduce((sum, prop) => sum + (prop.houses || 0), 0) || 0,
+        spent: (player.properties || []).reduce(
+          (sum, prop) => sum + (propertyPrices[prop.name] || 0) + ((prop.houses || 0) * (houseCosts[prop.name] || 0)),
+          0
+        ),
+      }));
+
+      const topNetWorth = playerNetWorths.reduce((max, item) => Math.max(max, item.netWorth), 0);
+
+      for (const item of playerNetWorths) {
+        const playerUser = await User.findById(item.player.user._id || item.player.user);
+        if (!playerUser) continue;
+
+        playerUser.stats.gamesPlayed = (playerUser.stats.gamesPlayed || 0) + 1;
+        const isWinner = item.netWorth === topNetWorth && topNetWorth > 0;
+        if (isWinner) {
+          playerUser.stats.gamesWon = (playerUser.stats.gamesWon || 0) + 1;
+        }
+
+        const earnings = item.player.balance - (game.startingBalance || 1500);
+        playerUser.stats.totalEarnings = (playerUser.stats.totalEarnings || 0) + earnings;
+        playerUser.stats.propertiesOwned = (playerUser.stats.propertiesOwned || 0) + item.propertiesOwned;
+        playerUser.stats.totalHousesBuilt = (playerUser.stats.totalHousesBuilt || 0) + item.totalHouses;
+        playerUser.stats.moneySpent = (playerUser.stats.moneySpent || 0) + item.spent;
+
+        playerUser.gameHistory.push({
+          gameId: game._id.toString(),
+          date: new Date(),
+          players: game.players.length,
+          result: isWinner ? 'Won' : 'Lost',
+          earnings,
+          netWorth: item.netWorth,
+          propertiesOwned: item.propertiesOwned,
+          houses: item.totalHouses,
+          edition: 'Deluxe',
+        });
+
+        await playerUser.save();
+      }
+    } catch (statsErr) {
+      console.error('Error updating player stats:', statsErr);
+    }
 
     res.json({
       message: "Game ended",
