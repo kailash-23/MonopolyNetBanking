@@ -71,10 +71,10 @@ function GameLobby() {
     }
   }, [game, code, loadGame]);
 
-  // Poll for updates every 3 seconds (in a real app, use WebSockets)
+  // Poll for updates every 2 seconds (in a real app, use WebSockets)
   useEffect(() => {
     if (game && game.status === 'waiting') {
-      const interval = setInterval(refreshInBackground, 500);
+      const interval = setInterval(refreshInBackground, 2000);
       return () => clearInterval(interval);
     }
   }, [game, refreshInBackground]);

@@ -1339,6 +1339,55 @@
 }
 .error-toast button:hover { opacity: 1; }
 
+/* Double-back exit confirmation */
+.exit-confirm-popup {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 110;
+  width: min(360px, calc(100vw - 28px));
+  background: rgba(30, 30, 42, 0.96);
+  color: #fff;
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.28);
+  animation: slideUpToast 0.2s ease;
+}
+
+.exit-confirm-popup p {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.exit-confirm-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.exit-btn-cancel,
+.exit-btn-confirm {
+  flex: 1;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.exit-btn-cancel {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+}
+
+.exit-btn-confirm {
+  background: #ef4444;
+  color: #fff;
+}
+
 /* Responsive - Mobile First */
 @media (min-width: 768px) {
   .dashboard-content {

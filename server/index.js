@@ -17,6 +17,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, ".env") });
 
 const app = express();
+const isProduction = process.env.NODE_ENV === "production";
 
 // Middleware
 app.use(cors({
@@ -34,19 +35,35 @@ app.use(express.json());
 // Rate limiting configuration
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per windowMs
+  max: isProduction ? 1200 : 100000,
   message: { message: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    if (!isProduction) return true;
+    // Game session polling is frequent; apply dedicated limiter for /api/games.
+    return req.path.startsWith('/api/games') || req.path === '/api/health';
+  },
 });
 
 // Stricter rate limit for auth routes (login, register, password reset)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 attempts per 15 minutes
+  max: isProduction ? 30 : 1000,
   message: { message: 'Too many authentication attempts, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => !isProduction,
+});
+
+// Dedicated game limiter to support lobby/session polling for multiple players.
+const gamesLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isProduction ? 4000 : 200000,
+  message: { message: 'Too many game requests, please wait a moment and retry.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => !isProduction,
 });
 
 // Apply general rate limiting to all routes
@@ -58,7 +75,7 @@ app.use("/api/auth", authLimiter, authRoutes);
 console.log("Registering friends routes...");
 app.use("/api/friends", friendsRoutes);
 console.log("Registering games routes...");
-app.use("/api/games", gamesRoutes);
+app.use("/api/games", gamesLimiter, gamesRoutes);
 console.log("All routes registered successfully!");
 
 // Debug endpoint to check routes

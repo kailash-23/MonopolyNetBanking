@@ -386,6 +386,7 @@
 .other-properties-section h3,
 .game-stats-section h3,
 .leaderboard-section h3,
+.ownership-section h3,
 .transactions-section h3 {
   font-family: 'Poppins', sans-serif;
   font-size: 0.9rem;
@@ -817,10 +818,89 @@
 /* ============ STATS TAB ============ */
 .game-stats-section,
 .leaderboard-section,
+.ownership-section,
 .transactions-section {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* Property Ownership (stats tab) */
+.ownership-player-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: white;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+.ownership-player-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ownership-player-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ownership-player-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #2d2d3a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ownership-count {
+  font-size: 0.72rem;
+  color: #9ca3af;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.ownership-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ownership-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f9fafb;
+  border: 1px solid rgba(0,0,0,0.05);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  color: #4b5563;
+}
+.ownership-chip.mortgaged {
+  opacity: 0.65;
+  border-color: rgba(220,38,38,0.2);
+}
+.ownership-chip-color {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.ownership-chip-mort {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #dc2626;
+  background: #fee2e2;
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+.ownership-chip-houses {
+  font-size: 0.68rem;
+}
+.ownership-empty {
+  font-size: 0.76rem;
+  color: #9ca3af;
 }
 .stats-grid {
   display: grid;

@@ -271,7 +271,7 @@ function GameSession() {
 
   useEffect(() => {
     if (game && game.status === 'in_progress') {
-      const interval = setInterval(refreshInBackground, 500);
+      const interval = setInterval(refreshInBackground, 2000);
       return () => clearInterval(interval);
     }
   }, [game, refreshInBackground]);
@@ -485,6 +485,16 @@ function GameSession() {
       });
     });
     return owned;
+  }, [game?.players]);
+
+  const ownershipByPlayer = useMemo(() => {
+    return (game?.players || []).map((player) => ({
+      id: player.user?._id || player.user,
+      name: player.user?.displayName || player.user?.username,
+      color: player.color,
+      token: player.token,
+      properties: player.properties || [],
+    }));
   }, [game?.players]);
 
   const availableProperties = useMemo(() => MONOPOLY_PROPERTIES.filter(p => !allOwnedProperties.has(p.name)), [allOwnedProperties]);
@@ -893,6 +903,48 @@ function GameSession() {
                     <span className="lb-net-worth">{formatMoney(Math.round(netWorth))}</span>
                     <span className="lb-net-label">Net Worth</span>
                   </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="ownership-section">
+            <h3>Property Ownership</h3>
+            {ownershipByPlayer.length === 0 && (
+              <div className="ownership-empty">No players in this session yet.</div>
+            )}
+            {ownershipByPlayer.map((player, idx) => {
+              const isYou = String(player.id) === String(user._id);
+              return (
+                <div key={player.id || idx} className="ownership-player-card">
+                  <div className="ownership-player-header">
+                    <div className="ownership-player-left">
+                      <div className={`mini-dot ${player.color}`}></div>
+                      <span className="ownership-player-name">
+                        {player.token && <span className="player-token-icon"><TokenIcon token={player.token} size={16} color="#555" /> </span>}
+                        {player.name}
+                        {isYou && <span className="you-tag">You</span>}
+                      </span>
+                    </div>
+                    <span className="ownership-count">{player.properties.length} properties</span>
+                  </div>
+
+                  {player.properties.length > 0 ? (
+                    <div className="ownership-chips">
+                      {player.properties.map((prop, propIdx) => (
+                        <span key={`${player.id || idx}-${prop.name}-${propIdx}`} className={`ownership-chip ${prop.mortgaged ? 'mortgaged' : ''}`}>
+                          <span className="ownership-chip-color" style={{ background: COLOR_GROUP_COLORS[prop.colorGroup] || '#ccc' }}></span>
+                          {prop.name}
+                          {prop.mortgaged && <span className="ownership-chip-mort">M</span>}
+                          {!prop.mortgaged && prop.houses > 0 && (
+                            <span className="ownership-chip-houses">{prop.houses === 5 ? '🏨' : `${prop.houses}🏠`}</span>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="ownership-empty">No properties owned.</div>
+                  )}
                 </div>
               );
             })}

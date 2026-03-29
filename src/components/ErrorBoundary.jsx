@@ -1,5 +1,7 @@
 import React, { Component } from 'react';
 
+const isDev = import.meta.env.DEV;
+
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -17,7 +19,7 @@ class ErrorBoundary extends Component {
     });
     
     // Log error to console in development
-    if (process.env.NODE_ENV === 'development') {
+    if (isDev) {
       console.error('Error caught by boundary:', error, errorInfo);
     }
     
@@ -45,7 +47,7 @@ class ErrorBoundary extends Component {
               We're sorry, but something unexpected happened. Please try again or return to the dashboard.
             </p>
             
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {isDev && this.state.error && (
               <details style={styles.details}>
                 <summary style={styles.summary}>Error Details</summary>
                 <pre style={styles.errorText}>

@@ -39,9 +39,12 @@ function Dashboard() {
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState('');
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [savedGames, setSavedGames] = useState([]);
   const [isResumingGame, setIsResumingGame] = useState(null);
   const [gameInvites, setGameInvites] = useState([]);
+  const lastBackPressRef = useRef(0);
+  const exitConfirmTimeoutRef = useRef(null);
 
   // Close profile menu when clicking outside
   useEffect(() => {
@@ -293,6 +296,93 @@ function Dashboard() {
       checkActiveGame();
     }
   }, [user, navigate]);
+
+  // Mobile-friendly double-back-to-quit behavior on dashboard.
+  useEffect(() => {
+    const clearExitTimer = () => {
+      if (exitConfirmTimeoutRef.current) {
+        clearTimeout(exitConfirmTimeoutRef.current);
+        exitConfirmTimeoutRef.current = null;
+      }
+    };
+
+    const showExitPrompt = () => {
+      clearExitTimer();
+      setShowExitConfirm(true);
+      exitConfirmTimeoutRef.current = setTimeout(() => {
+        setShowExitConfirm(false);
+      }, 2000);
+    };
+
+    const handleQuit = () => {
+      clearExitTimer();
+      setShowExitConfirm(false);
+      // Go back past our pushed history state to effectively exit this screen.
+      window.history.go(-2);
+    };
+
+    const handlePopState = (event) => {
+      event.preventDefault();
+
+      if (showHostModal) {
+        setShowHostModal(false);
+        setError('');
+        window.history.pushState({ dashboard: true }, '');
+        return;
+      }
+
+      if (showJoinModal) {
+        setShowJoinModal(false);
+        setError('');
+        setIsJoining(false);
+        setGameCode('');
+        window.history.pushState({ dashboard: true }, '');
+        return;
+      }
+
+      if (showProfileMenu) {
+        setShowProfileMenu(false);
+        window.history.pushState({ dashboard: true }, '');
+        return;
+      }
+
+      const now = Date.now();
+      if (showExitConfirm && now - lastBackPressRef.current < 2000) {
+        handleQuit();
+        return;
+      }
+
+      lastBackPressRef.current = now;
+      showExitPrompt();
+      window.history.pushState({ dashboard: true }, '');
+    };
+
+    // Push state so browser back can be intercepted while user is on dashboard.
+    window.history.pushState({ dashboard: true }, '');
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      clearExitTimer();
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [showExitConfirm, showHostModal, showJoinModal, showProfileMenu]);
+
+  const handleCancelExit = () => {
+    if (exitConfirmTimeoutRef.current) {
+      clearTimeout(exitConfirmTimeoutRef.current);
+      exitConfirmTimeoutRef.current = null;
+    }
+    setShowExitConfirm(false);
+  };
+
+  const handleConfirmExit = () => {
+    if (exitConfirmTimeoutRef.current) {
+      clearTimeout(exitConfirmTimeoutRef.current);
+      exitConfirmTimeoutRef.current = null;
+    }
+    setShowExitConfirm(false);
+    window.history.go(-2);
+  };
 
   return (
     <div className="dashboard">
@@ -626,6 +716,17 @@ function Dashboard() {
       {/* Error Toast */}
       {error && !showHostModal && !showJoinModal && (
         <div className="error-toast">{error}<button onClick={() => setError('')}>×</button></div>
+      )}
+
+      {/* Double Back Exit Confirmation */}
+      {showExitConfirm && !showHostModal && !showJoinModal && (
+        <div className="exit-confirm-popup" role="dialog" aria-live="polite">
+          <p>Press back again to quit</p>
+          <div className="exit-confirm-actions">
+            <button className="exit-btn-cancel" onClick={handleCancelExit}>Stay</button>
+            <button className="exit-btn-confirm" onClick={handleConfirmExit}>Quit</button>
+          </div>
+        </div>
       )}
 
       {/* Host Game Modal */}
