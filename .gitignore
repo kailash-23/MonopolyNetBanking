@@ -9,6 +9,7 @@ build/
 .env
 .env.local
 .env.*.local
+server/config/firebase-service-account.json
 
 # Editor directories and files
 .vscode/*

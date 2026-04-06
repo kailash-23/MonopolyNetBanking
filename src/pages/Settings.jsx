@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import authService from '../services/authService';
+import { authService } from '../services/authService';
 import { soundService } from '../services/soundService';
 import './Settings.css';
 
@@ -224,7 +224,7 @@ const Settings = () => {
   };
 
   const handleLogout = () => {
-    authService.signOut();
+    authService.logout();
     navigate('/');
   };
 

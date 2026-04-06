@@ -1,19 +1,32 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { GoogleOAuthProvider } from '@react-oauth/google';
+import { onIdTokenChanged } from 'firebase/auth';
 import App from './App';
 import './styles/index.css';
+import { auth } from './services/firebaseService';
 
-// Google OAuth Client ID - replace with your own
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID';
+const root = ReactDOM.createRoot(document.getElementById('root'));
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+root.render(
   <React.StrictMode>
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </GoogleOAuthProvider>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </React.StrictMode>
 );
+
+onIdTokenChanged(auth, async (user) => {
+  if (user) {
+    const token = await user.getIdToken();
+    localStorage.setItem('authToken', token);
+    localStorage.setItem('authSource', 'firebase');
+  } else {
+    const authSource = localStorage.getItem('authSource');
+    if (!authSource || authSource === 'firebase') {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+      localStorage.removeItem('authSource');
+    }
+  }
+});

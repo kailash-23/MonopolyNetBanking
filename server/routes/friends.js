@@ -1,28 +1,8 @@
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import { verifyFirebaseToken } from '../middleware/verifyFirebaseToken.js';
 
 const router = express.Router();
-
-// Middleware to verify token
-const verifyToken = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  
-  if (!token) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.id;
-    next();
-  } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: 'Token expired. Please sign in again.' });
-    }
-    return res.status(401).json({ message: 'Invalid token' });
-  }
-};
 
 // Helper: Return populated friends data for a user (reused across routes)
 const getPopulatedFriendsData = async (userId) => {
@@ -42,7 +22,7 @@ const getPopulatedFriendsData = async (userId) => {
 };
 
 // Get friends list
-router.get('/list', verifyToken, async (req, res) => {
+router.get('/list', verifyFirebaseToken, async (req, res) => {
   try {
     const data = await getPopulatedFriendsData(req.userId);
 
@@ -58,7 +38,7 @@ router.get('/list', verifyToken, async (req, res) => {
 });
 
 // Search users by UID or username — parallel queries with Set-based lookups
-router.get('/search', verifyToken, async (req, res) => {
+router.get('/search', verifyFirebaseToken, async (req, res) => {
   try {
     const { query } = req.query;
     
@@ -114,7 +94,7 @@ router.get('/search', verifyToken, async (req, res) => {
 });
 
 // Send friend request — returns updated sent list so client skips refetch
-router.post('/request', verifyToken, async (req, res) => {
+router.post('/request', verifyFirebaseToken, async (req, res) => {
   try {
     const { targetUserId } = req.body;
     const userId = req.userId;
@@ -170,7 +150,7 @@ router.post('/request', verifyToken, async (req, res) => {
 });
 
 // Accept friend request — returns full updated data
-router.post('/accept', verifyToken, async (req, res) => {
+router.post('/accept', verifyFirebaseToken, async (req, res) => {
   try {
     const { requesterId } = req.body;
     const userId = req.userId;
@@ -222,7 +202,7 @@ router.post('/accept', verifyToken, async (req, res) => {
 });
 
 // Reject friend request — returns updated received list
-router.post('/reject', verifyToken, async (req, res) => {
+router.post('/reject', verifyFirebaseToken, async (req, res) => {
   try {
     const { requesterId } = req.body;
     const userId = req.userId;
@@ -268,7 +248,7 @@ router.post('/reject', verifyToken, async (req, res) => {
 });
 
 // Cancel sent friend request — returns updated sent list
-router.post('/cancel', verifyToken, async (req, res) => {
+router.post('/cancel', verifyFirebaseToken, async (req, res) => {
   try {
     const { targetUserId } = req.body;
     const userId = req.userId;
@@ -314,7 +294,7 @@ router.post('/cancel', verifyToken, async (req, res) => {
 });
 
 // Remove friend — returns updated friends list
-router.post('/remove', verifyToken, async (req, res) => {
+router.post('/remove', verifyFirebaseToken, async (req, res) => {
   try {
     const { friendId } = req.body;
     const userId = req.userId;
@@ -352,7 +332,7 @@ router.post('/remove', verifyToken, async (req, res) => {
 });
 
 // Send game invite to a friend
-router.post('/invite-to-game', verifyToken, async (req, res) => {
+router.post('/invite-to-game', verifyFirebaseToken, async (req, res) => {
   try {
     const { targetUserId, gameId, gameCode, gameName } = req.body;
 
@@ -398,7 +378,7 @@ router.post('/invite-to-game', verifyToken, async (req, res) => {
 });
 
 // Get game invites
-router.get('/game-invites', verifyToken, async (req, res) => {
+router.get('/game-invites', verifyFirebaseToken, async (req, res) => {
   try {
     const user = await User.findById(req.userId)
       .select('gameInvites')
@@ -416,7 +396,7 @@ router.get('/game-invites', verifyToken, async (req, res) => {
 });
 
 // Dismiss game invite — atomic pull, no full doc load
-router.post('/dismiss-invite', verifyToken, async (req, res) => {
+router.post('/dismiss-invite', verifyFirebaseToken, async (req, res) => {
   try {
     const { inviteId } = req.body;
 

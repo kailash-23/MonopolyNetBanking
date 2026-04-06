@@ -1,428 +1,269 @@
 import express from "express";
 import jwt from "jsonwebtoken";
-import * as jose from "jose";
+import passport from "passport";
 import User from "../models/User.js";
+import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.js";
+import { deriveAuthProvider, generateUsername, normalizeEmail } from "../utils/userProfile.js";
 import { generateResetToken, hashToken, sendPasswordResetEmail } from "../config/email.js";
 
 const router = express.Router();
+const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
+const GOOGLE_AUTH_ENABLED = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 
-// Cache for Apple's public keys (JWKS)
-let appleJwksCache = null;
-let appleJwksCacheExpiry = 0;
+const normalizeUsernameValue = (value) =>
+  typeof value === "string" ? value.trim().toLowerCase() : "";
 
-// Fetch and cache Apple's public keys
-async function getApplePublicKeys() {
-  const now = Date.now();
-  if (appleJwksCache && now < appleJwksCacheExpiry) {
-    return appleJwksCache;
+const validateUsername = (value) => {
+  const normalized = normalizeUsernameValue(value);
+  if (!normalized) {
+    return { valid: false, message: "Username is required" };
   }
-  
-  const response = await fetch('https://appleid.apple.com/auth/keys');
-  if (!response.ok) {
-    throw new Error('Failed to fetch Apple public keys');
+  if (!USERNAME_PATTERN.test(normalized)) {
+    return {
+      valid: false,
+      message: "Username must be 3-20 characters and use letters, numbers, or underscores",
+    };
   }
-  
-  const jwks = await response.json();
-  appleJwksCache = jose.createLocalJWKSet(jwks);
-  appleJwksCacheExpiry = now + (24 * 60 * 60 * 1000); // Cache for 24 hours
-  return appleJwksCache;
-}
-
-// Verify Apple identity token
-async function verifyAppleToken(identityToken, clientId) {
-  const jwks = await getApplePublicKeys();
-  
-  const { payload } = await jose.jwtVerify(identityToken, jwks, {
-    issuer: 'https://appleid.apple.com',
-    audience: clientId,
-  });
-  
-  return payload;
-}
-
-// Generate JWT token
-const generateToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-    expiresIn: "7d",
-  });
+  return { valid: true, value: normalized };
 };
 
-// @route   POST /api/auth/signup
-// @desc    Register a new user
-// @access  Public
-router.post("/signup", async (req, res) => {
-  try {
-    const { username, password } = req.body;
+const allowMissingUser = (req, _res, next) => {
+  req.allowMissingUser = true;
+  next();
+};
 
-    // Validation
-    if (!username || !password) {
-      return res.status(400).json({ message: "Username and password are required" });
-    }
-
-    if (username.length < 3) {
-      return res.status(400).json({ message: "Username must be at least 3 characters" });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters" });
-    }
-
-    // Check if user exists
-    const existingUser = await User.findOne({ username: username.toLowerCase() });
-    if (existingUser) {
-      return res.status(400).json({ message: "Username already exists. Please choose a different one." });
-    }
-
-    // Create user
-    const user = await User.create({
-      username: username.toLowerCase(),
-      password,
-    });
-
-    res.status(201).json({
-      user: user.toJSON(),
-      message: "Account created successfully",
-    });
-  } catch (error) {
-    console.error("Signup error:", error);
-    res.status(500).json({ message: "Something went wrong. Please try again." });
+const issueAppToken = (user) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error("Missing JWT_SECRET for token issuance");
   }
+
+  const payload = {
+    userId: user._id.toString(),
+    firebaseUid: user.firebaseUid,
+    authProvider: user.authProvider || "local",
+  };
+
+  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "7d" });
+};
+
+const redirectToFrontend = (res, params = {}) => {
+  const url = new URL(`${FRONTEND_URL}/oauth-success`);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      url.searchParams.set(key, String(value));
+    }
+  });
+
+  res.redirect(url.toString());
+};
+
+const buildSyncPayload = (user) => {
+  const needsProfileSetup = user.isProfileComplete !== true;
+  const payload = { user: user.toJSON() };
+  if (needsProfileSetup) {
+    payload.needsProfileSetup = true;
+  }
+  return payload;
+};
+
+router.get("/google", (req, res, next) => {
+  if (!GOOGLE_AUTH_ENABLED) {
+    return res.status(503).json({ message: "Google OAuth is not configured" });
+  }
+
+  const state = req.query.state ? String(req.query.state) : undefined;
+  return passport.authenticate("google", {
+    scope: ["profile", "email"],
+    prompt: "select_account",
+    state,
+    session: false,
+  })(req, res, next);
 });
 
-// @route   POST /api/auth/signin
-// @desc    Authenticate user & get token
-// @access  Public
-router.post("/signin", async (req, res) => {
-  try {
-    const { username, password } = req.body;
+router.get(
+  "/google/callback",
+  (req, res, next) => {
+    if (!GOOGLE_AUTH_ENABLED) {
+      return res.redirect(`${FRONTEND_URL}/signin?error=google_oauth_disabled`);
+    }
+    next();
+  },
+  passport.authenticate("google", {
+    failureRedirect: `${FRONTEND_URL}/signin?error=google_auth_failed`,
+    session: false,
+  }),
+  async (req, res) => {
+    try {
+      const token = issueAppToken(req.user);
+      redirectToFrontend(res, {
+        token,
+        needsProfileSetup: req.user.isProfileComplete ? "0" : "1",
+      });
+    } catch (error) {
+      console.error("Google OAuth callback error:", error);
+      res.redirect(`${FRONTEND_URL}/signin?error=google_auth_failed`);
+    }
+  }
+);
 
-    // Validation
-    if (!username || !password) {
-      return res.status(400).json({ message: "Username and password are required" });
+router.post("/sync", allowMissingUser, verifyFirebaseToken, async (req, res) => {
+  const firebaseUid = req.firebaseUid || req.user?.firebaseUid || req.firebaseUser?.uid || req.userId;
+  const normalizedEmail = normalizeEmail(req.userEmail || req.firebaseUser?.email);
+  req.userEmail = normalizedEmail;
+
+  try {
+    if (!firebaseUid) {
+      return res.status(400).json({ message: "Missing Firebase UID" });
     }
 
-    // Find user
-    const user = await User.findOne({ username: username.toLowerCase() });
+    let user = req.user;
+
     if (!user) {
-      return res.status(401).json({ message: "Invalid username or password" });
+      user = await User.findOne({ firebaseUid });
     }
 
-    // Check password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid username or password" });
+    if (!user) {
+      const username = await generateUsername([
+        req.body?.username,
+        req.body?.displayName,
+        req.firebaseUser?.displayName,
+        req.firebaseUser?.name,
+        req.firebaseUser?.email?.split("@")[0],
+        req.userEmail?.split("@")[0],
+        firebaseUid,
+      ]);
+
+      user = await User.create({
+        firebaseUid,
+        email: normalizedEmail,
+        displayName:
+          req.body?.displayName ||
+          req.firebaseUser?.displayName ||
+          req.firebaseUser?.name ||
+          req.userEmail?.split("@")[0] ||
+          "Player",
+        username,
+        authProvider: deriveAuthProvider(req.firebaseUser),
+        isProfileComplete: false,
+      });
     }
 
-    // Generate token
-    const token = generateToken(user._id);
+    req.user = user;
+    req.userId = user._id.toString();
 
-    res.json({
-      user: user.toJSON(),
-      token,
-    });
+    res.json(buildSyncPayload(user));
   } catch (error) {
-    console.error("Signin error:", error);
-    res.status(500).json({ message: "Something went wrong. Please try again." });
+    console.error("Auth sync error:", error);
+    res.status(500).json({ message: "Failed to sync user profile" });
   }
 });
 
-// @route   POST /api/auth/complete-profile
-// @desc    Complete profile setup for new OAuth users
-// @access  Private
-router.post("/complete-profile", async (req, res) => {
+router.get("/me", verifyFirebaseToken, (req, res) => {
+  if (!req.user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  res.json({ user: req.user.toJSON() });
+});
+
+router.post("/complete-profile", verifyFirebaseToken, async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
-    
-    if (!token) {
+    if (!req.user) {
       return res.status(401).json({ message: "Not authorized" });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    const { username, displayName } = req.body || {};
+    const validation = validateUsername(username);
+    if (!validation.valid) {
+      return res.status(400).json({ message: validation.message });
     }
 
-    const { username, displayName } = req.body;
-
-    // Validate username
-    if (!username || username.length < 3) {
-      return res.status(400).json({ message: "Username must be at least 3 characters" });
-    }
-
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-      return res.status(400).json({ message: "Username can only contain letters, numbers, and underscores" });
-    }
-
-    // Check if username is taken
-    const existingUser = await User.findOne({ 
-      username: username.toLowerCase(),
-      _id: { $ne: user._id }
+    const existingUser = await User.findOne({
+      username: validation.value,
+      _id: { $ne: req.user._id },
     });
 
     if (existingUser) {
       return res.status(400).json({ message: "Username is already taken" });
     }
 
-    // Update user profile
-    user.username = username.toLowerCase();
-    if (displayName) user.displayName = displayName;
-    user.isProfileComplete = true;
-    await user.save();
+    req.user.username = validation.value;
+    if (typeof displayName === "string") {
+      const trimmedName = displayName.trim();
+      if (trimmedName) {
+        req.user.displayName = trimmedName;
+      }
+    }
+    req.user.isProfileComplete = true;
+    await req.user.save();
 
     res.json({
-      user: user.toJSON(),
+      user: req.user.toJSON(),
       message: "Profile updated successfully",
     });
   } catch (error) {
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({ message: "Token expired. Please sign in again." });
-    }
     console.error("Complete profile error:", error);
     res.status(500).json({ message: "Failed to update profile" });
   }
 });
 
-// @route   POST /api/auth/check-username
-// @desc    Check if username is available
-// @access  Public
 router.post("/check-username", async (req, res) => {
   try {
-    const { username } = req.body;
-    
-    if (!username || username.length < 3) {
-      return res.json({ available: false, message: "Username must be at least 3 characters" });
+    const { username } = req.body || {};
+    const validation = validateUsername(username);
+    if (!validation.valid) {
+      return res.json({ available: false, message: validation.message });
     }
 
-    const existingUser = await User.findOne({ username: username.toLowerCase() });
-    
-    res.json({ 
+    const existingUser = await User.findOne({ username: validation.value });
+    return res.json({
       available: !existingUser,
-      message: existingUser ? "Username is taken" : "Username is available"
+      message: existingUser ? "Username is taken" : "Username is available",
     });
   } catch (error) {
+    console.error("Check username error:", error);
     res.status(500).json({ available: false, message: "Error checking username" });
   }
 });
 
-// @route   GET /api/auth/me
-// @desc    Get current user
-// @access  Private
-router.get("/me", async (req, res) => {
+router.put("/profile", verifyFirebaseToken, async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
-    
-    if (!token) {
+    const user = req.user;
+    if (!user) {
       return res.status(401).json({ message: "Not authorized" });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id);
+    const { username, displayName, avatar } = req.body || {};
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.json({ user: user.toJSON() });
-  } catch (error) {
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({ message: "Token expired. Please sign in again." });
-    }
-    res.status(401).json({ message: "Not authorized" });
-  }
-});
-
-// @route   POST /api/auth/oauth/google
-// @desc    Authenticate with Google
-// @access  Public
-router.post("/oauth/google", async (req, res) => {
-  try {
-    const { googleId, email, name, picture } = req.body;
-    const normalizedEmail = typeof email === "string" ? email.toLowerCase().trim() : "";
-    const displayName = typeof name === "string" && name.trim() ? name.trim() : "Google User";
-    
-    if (!googleId || !normalizedEmail) {
-      return res.status(400).json({ message: "Invalid Google authentication data" });
-    }
-
-    // Find or create user
-    let user = await User.findOne({ googleId });
-    let isNewUser = false;
-    
-    if (!user) {
-      // Check if email is already used
-      user = await User.findOne({ email: normalizedEmail });
-      
-      if (user) {
-        // Link Google account to existing user
-        user.googleId = googleId;
-        user.avatar = user.avatar || picture;
-        user.displayName = user.displayName || displayName;
-        await user.save();
-      } else {
-        // Create new user with Google - mark as needing profile setup
-        isNewUser = true;
-        
-        // Create a temporary username (will be updated during profile setup)
-        const baseUsername = `google_${String(googleId).slice(-8).toLowerCase()}`;
-        let tempUsername = baseUsername;
-        let suffix = 1;
-
-        // Ensure username uniqueness to avoid duplicate key errors.
-        while (await User.exists({ username: tempUsername })) {
-          tempUsername = `${baseUsername}_${suffix}`;
-          suffix += 1;
-        }
-        
-        user = await User.create({
-          username: tempUsername,
-          email: normalizedEmail,
-          displayName,
-          avatar: picture,
-          googleId,
-          authProvider: 'google',
-          isProfileComplete: false, // New user needs to set up profile
-        });
-      }
-    }
-
-    const token = generateToken(user._id);
-
-    res.json({
-      user: user.toJSON(),
-      token,
-      isNewUser, // Indicates if user needs to complete profile setup
-    });
-  } catch (error) {
-    console.error("Google OAuth error:", error);
-    res.status(500).json({ message: "Google authentication failed" });
-  }
-});
-
-// @route   POST /api/auth/oauth/apple
-// @desc    Authenticate with Apple
-// @access  Public
-router.post("/oauth/apple", async (req, res) => {
-  try {
-    const { identityToken, user: appleUser, clientId } = req.body;
-    
-    if (!identityToken) {
-      return res.status(400).json({ message: "Identity token is required" });
-    }
-    
-    // Use provided clientId or fall back to environment variable
-    const appBundleId = clientId || process.env.APPLE_CLIENT_ID;
-    if (!appBundleId) {
-      console.error("Apple OAuth error: No client ID configured");
-      return res.status(500).json({ message: "Apple Sign In not configured" });
-    }
-    
-    // Cryptographically verify Apple identity token
-    let payload;
-    try {
-      payload = await verifyAppleToken(identityToken, appBundleId);
-    } catch (verifyError) {
-      console.error("Apple token verification failed:", verifyError);
-      return res.status(401).json({ message: "Invalid identity token" });
-    }
-    
-    const { sub: appleId, email } = payload;
-    const name = appleUser?.name ? `${appleUser.name.firstName || ''} ${appleUser.name.lastName || ''}`.trim() : null;
-
-    // Find or create user
-    let user = await User.findOne({ appleId });
-    let isNewUser = false;
-    
-    if (!user) {
-      if (email) {
-        user = await User.findOne({ email });
-      }
-      
-      if (user) {
-        // Link Apple account to existing user
-        user.appleId = appleId;
-        user.displayName = user.displayName || name;
-        await user.save();
-      } else {
-        // Create new user with Apple
-        isNewUser = true;
-        const baseName = (email?.split('@')[0] || 'apple_user').toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 20);
-        let uniqueUsername = baseName;
-        let counter = 1;
-        
-        while (await User.findOne({ username: uniqueUsername })) {
-          uniqueUsername = `${baseName.slice(0, 17)}${counter}`;
-          counter++;
-        }
-        
-        user = await User.create({
-          username: uniqueUsername,
-          email,
-          displayName: name,
-          appleId,
-          authProvider: 'apple',
-        });
-      }
-    }
-
-    const token = generateToken(user._id);
-
-    res.json({
-      user: user.toJSON(),
-      token,
-      isNewUser,
-    });
-  } catch (error) {
-    console.error("Apple OAuth error:", error);
-    res.status(500).json({ message: "Apple authentication failed" });
-  }
-});
-
-// @route   PUT /api/auth/profile
-// @desc    Update user profile (username, displayName)
-// @access  Private
-router.put("/profile", async (req, res) => {
-  try {
-    const token = req.headers.authorization?.split(" ")[1];
-    
-    if (!token) {
-      return res.status(401).json({ message: "Not authorized" });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const { username, displayName, email, avatar } = req.body;
-
-    // Validate and update username if provided
     if (username && username !== user.username) {
-      if (username.length < 3) {
-        return res.status(400).json({ message: "Username must be at least 3 characters" });
+      const validation = validateUsername(username);
+      if (!validation.valid) {
+        return res.status(400).json({ message: validation.message });
       }
-      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-        return res.status(400).json({ message: "Username can only contain letters, numbers, and underscores" });
-      }
-      const existingUser = await User.findOne({ 
-        username: username.toLowerCase(),
-        _id: { $ne: user._id }
+
+      const existingUser = await User.findOne({
+        username: validation.value,
+        _id: { $ne: user._id },
       });
+
       if (existingUser) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: `Username "${username}" is already taken. Please choose a different username.` 
+          message: `Username "${username}" is already taken. Please choose a different username.`,
         });
       }
-      user.username = username.toLowerCase();
+
+      user.username = validation.value;
     }
 
-    if (displayName !== undefined) user.displayName = displayName;
-    if (email !== undefined) user.email = email;
-    if (avatar !== undefined) user.avatar = avatar;
+    if (typeof displayName === "string") {
+      user.displayName = displayName.trim();
+    }
+
+    if (avatar !== undefined) {
+      user.avatar = avatar;
+    }
 
     await user.save();
 
@@ -431,86 +272,24 @@ router.put("/profile", async (req, res) => {
       message: "Profile updated successfully",
     });
   } catch (error) {
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({ message: "Token expired. Please sign in again." });
-    }
     console.error("Profile update error:", error);
     res.status(500).json({ message: "Failed to update profile" });
   }
 });
 
-// @route   PUT /api/auth/password
-// @desc    Change user password
-// @access  Private
-router.put("/password", async (req, res) => {
+router.put("/settings", verifyFirebaseToken, async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
-    
-    if (!token) {
+    const user = req.user;
+    if (!user) {
       return res.status(401).json({ message: "Not authorized" });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    const { settings } = req.body || {};
+    if (!settings || typeof settings !== "object") {
+      return res.status(400).json({ message: "Settings payload is required" });
     }
 
-    const { currentPassword, newPassword } = req.body;
-
-    // For OAuth users without password, allow setting new password
-    if (user.password) {
-      if (!currentPassword) {
-        return res.status(400).json({ message: "Current password is required" });
-      }
-      const isMatch = await user.comparePassword(currentPassword);
-      if (!isMatch) {
-        return res.status(400).json({ message: "Current password is incorrect" });
-      }
-    }
-
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ message: "New password must be at least 6 characters" });
-    }
-
-    user.password = newPassword;
-    await user.save();
-
-    res.json({ message: "Password updated successfully" });
-  } catch (error) {
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({ message: "Token expired. Please sign in again." });
-    }
-    console.error("Password update error:", error);
-    res.status(500).json({ message: "Failed to update password" });
-  }
-});
-
-// @route   PUT /api/auth/settings
-// @desc    Update user settings
-// @access  Private
-router.put("/settings", async (req, res) => {
-  try {
-    const token = req.headers.authorization?.split(" ")[1];
-    
-    if (!token) {
-      return res.status(401).json({ message: "Not authorized" });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const { settings } = req.body;
-
-    if (settings) {
-      user.settings = { ...user.settings, ...settings };
-    }
-
+    user.settings = { ...user.settings, ...settings };
     await user.save();
 
     res.json({
@@ -518,104 +297,78 @@ router.put("/settings", async (req, res) => {
       message: "Settings updated successfully",
     });
   } catch (error) {
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({ message: "Token expired. Please sign in again." });
-    }
     console.error("Settings update error:", error);
     res.status(500).json({ message: "Failed to update settings" });
   }
 });
 
-// @route   GET /api/auth/stats
-// @desc    Get user stats and game history
-// @access  Private
-router.get("/stats", async (req, res) => {
+router.get("/stats", verifyFirebaseToken, (req, res) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
-    
-    if (!token) {
+    const user = req.user;
+    if (!user) {
       return res.status(401).json({ message: "Not authorized" });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const winRate = user.stats.gamesPlayed > 0 
-      ? Math.round((user.stats.gamesWon / user.stats.gamesPlayed) * 100) 
-      : 0;
+    const stats = user.stats || {};
+    const gamesPlayed = stats.gamesPlayed || 0;
+    const gamesWon = stats.gamesWon || 0;
+    const winRate = gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : 0;
 
     res.json({
       stats: {
-        gamesPlayed: user.stats.gamesPlayed || 0,
-        gamesWon: user.stats.gamesWon || 0,
-        totalEarnings: user.stats.totalEarnings || 0,
+        gamesPlayed,
+        gamesWon,
+        totalEarnings: stats.totalEarnings || 0,
         winRate: `${winRate}%`,
       },
-      gameHistory: user.gameHistory.slice(-10).reverse(), // Last 10 games
+      gameHistory: (user.gameHistory || []).slice(-10).reverse(),
     });
   } catch (error) {
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({ message: "Token expired. Please sign in again." });
-    }
     console.error("Stats fetch error:", error);
     res.status(500).json({ message: "Failed to fetch stats" });
   }
 });
 
-// @route   POST /api/auth/password-reset
-// @desc    Send password reset email
-// @access  Public
 router.post("/password-reset", async (req, res) => {
   try {
-    const { email } = req.body;
-
+    const { email } = req.body || {};
     if (!email) {
       return res.status(400).json({ message: "Email is required" });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = normalizeEmail(email);
+    const user = normalizedEmail ? await User.findOne({ email: normalizedEmail }) : null;
 
     if (!user) {
-      // Don't reveal if user exists or not for security
-      return res.json({ 
+      return res.json({
         success: true,
-        message: "If an account with that email exists, a password reset link has been sent." 
+        message: "If an account with that email exists, a password reset link has been sent.",
       });
     }
 
-    // Generate reset token
     const resetToken = generateResetToken();
     const hashedToken = hashToken(resetToken);
-    
-    // Save token to user with 1 hour expiry
     user.passwordResetToken = hashedToken;
-    user.passwordResetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+    user.passwordResetExpires = Date.now() + 60 * 60 * 1000;
     await user.save();
 
-    // Send email
     try {
       await sendPasswordResetEmail(email, resetToken, user.displayName || user.username);
-      console.log(`Password reset email sent to: ${email}`);
     } catch (emailError) {
-      // If email fails, clear the token
       user.passwordResetToken = undefined;
       user.passwordResetExpires = undefined;
       await user.save();
-      
-      console.error('Failed to send password reset email:', emailError);
-      return res.status(500).json({ 
+
+      console.error("Failed to send password reset email:", emailError);
+      return res.status(500).json({
         success: false,
-        message: "Failed to send password reset email. Please try again later." 
+        message: "Failed to send password reset email. Please try again later.",
       });
     }
 
-    res.json({ 
+    res.json({
       success: true,
-      message: "If an account with that email exists, a password reset link has been sent." 
+      message: "If an account with that email exists, a password reset link has been sent.",
     });
   } catch (error) {
     console.error("Password reset error:", error);

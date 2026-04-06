@@ -1,41 +1,63 @@
 import express from "express";
-import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import Game from "../models/Game.js";
 import User from "../models/User.js";
+import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.js";
 
 const router = express.Router();
 
-// Middleware to verify JWT token
-const authenticate = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "No token provided" });
-    }
+const PROPERTY_CATALOG = [
+  { name: "Old Kent Road", colorGroup: "brown", price: 60, houseCost: 50 },
+  { name: "Whitechapel Road", colorGroup: "brown", price: 60, houseCost: 50 },
+  { name: "The Angel Islington", colorGroup: "lightblue", price: 100, houseCost: 50 },
+  { name: "Euston Road", colorGroup: "lightblue", price: 100, houseCost: 50 },
+  { name: "Pentonville Road", colorGroup: "lightblue", price: 120, houseCost: 50 },
+  { name: "Pall Mall", colorGroup: "pink", price: 140, houseCost: 100 },
+  { name: "Whitehall", colorGroup: "pink", price: 140, houseCost: 100 },
+  { name: "Northumberland Avenue", colorGroup: "pink", price: 160, houseCost: 100 },
+  { name: "Bow Street", colorGroup: "orange", price: 180, houseCost: 100 },
+  { name: "Marlborough Street", colorGroup: "orange", price: 180, houseCost: 100 },
+  { name: "Vine Street", colorGroup: "orange", price: 200, houseCost: 100 },
+  { name: "Strand", colorGroup: "red", price: 220, houseCost: 150 },
+  { name: "Fleet Street", colorGroup: "red", price: 220, houseCost: 150 },
+  { name: "Trafalgar Square", colorGroup: "red", price: 240, houseCost: 150 },
+  { name: "Leicester Square", colorGroup: "yellow", price: 260, houseCost: 150 },
+  { name: "Coventry Street", colorGroup: "yellow", price: 260, houseCost: 150 },
+  { name: "Piccadilly", colorGroup: "yellow", price: 280, houseCost: 150 },
+  { name: "Regent Street", colorGroup: "green", price: 300, houseCost: 200 },
+  { name: "Oxford Street", colorGroup: "green", price: 300, houseCost: 200 },
+  { name: "Bond Street", colorGroup: "green", price: 320, houseCost: 200 },
+  { name: "Park Lane", colorGroup: "darkblue", price: 350, houseCost: 200 },
+  { name: "Mayfair", colorGroup: "darkblue", price: 400, houseCost: 200 },
+  { name: "Kings Cross Station", colorGroup: "station", price: 200, houseCost: 0 },
+  { name: "Marylebone Station", colorGroup: "station", price: 200, houseCost: 0 },
+  { name: "Fenchurch St Station", colorGroup: "station", price: 200, houseCost: 0 },
+  { name: "Liverpool St Station", colorGroup: "station", price: 200, houseCost: 0 },
+  { name: "Electric Company", colorGroup: "utility", price: 150, houseCost: 0 },
+  { name: "Water Works", colorGroup: "utility", price: 150, houseCost: 0 },
+];
 
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    const user = await User.findById(decoded.id);
-    if (!user) {
-      return res.status(401).json({ message: "User not found" });
-    }
+const PROPERTY_BY_NAME = new Map(PROPERTY_CATALOG.map((property) => [property.name, property]));
 
-    req.user = user;
-    next();
-  } catch (error) {
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({ message: "Token expired. Please sign in again." });
-    }
-    return res.status(401).json({ message: "Invalid token" });
+const canDevelopColorGroup = (colorGroup) => !["station", "utility"].includes(colorGroup);
+
+const hasFullColorSet = (playerProperties, colorGroup) => {
+  const groupProps = PROPERTY_CATALOG.filter((property) => property.colorGroup === colorGroup);
+  if (!groupProps.length) {
+    return false;
   }
+  return groupProps.every((property) => playerProperties.some((owned) => owned.name === property.name));
+};
+
+const isTransientTransactionError = (error) => {
+  const transientCodes = new Set([112, 244, 251]);
+  return Boolean(error?.errorLabels?.includes("TransientTransactionError") || transientCodes.has(error?.code));
 };
 
 // @route   POST /api/games/create
 // @desc    Create a new game session
 // @access  Private
-router.post("/create", authenticate, async (req, res) => {
+router.post("/create", verifyFirebaseToken, async (req, res) => {
   try {
     const { name, maxPlayers, startingBalance, goSalary, settings } = req.body;
 
@@ -101,7 +123,7 @@ router.post("/create", authenticate, async (req, res) => {
 // @route   POST /api/games/join
 // @desc    Join a game using 6-digit code
 // @access  Private
-router.post("/join", authenticate, async (req, res) => {
+router.post("/join", verifyFirebaseToken, async (req, res) => {
   try {
     const { code } = req.body;
 
@@ -198,7 +220,7 @@ router.post("/join", authenticate, async (req, res) => {
 // @route   POST /api/games/leave
 // @desc    Leave a game
 // @access  Private
-router.post("/leave", authenticate, async (req, res) => {
+router.post("/leave", verifyFirebaseToken, async (req, res) => {
   try {
     const { gameId } = req.body;
 
@@ -271,7 +293,7 @@ router.post("/leave", authenticate, async (req, res) => {
 // @route   GET /api/games/saved
 // @desc    Get user's saved games (games that can be resumed - idle_timeout or host_left)
 // @access  Private
-router.get("/saved", authenticate, async (req, res) => {
+router.get("/saved", verifyFirebaseToken, async (req, res) => {
   try {
     const savedGames = await Game.find({
       host: req.user._id,
@@ -306,7 +328,7 @@ router.get("/saved", authenticate, async (req, res) => {
 // @route   GET /api/games/:code
 // @desc    Get game by code
 // @access  Private
-router.get("/:code([A-Za-z0-9]{6})", authenticate, async (req, res) => {
+router.get("/:code([A-Za-z0-9]{6})", verifyFirebaseToken, async (req, res) => {
   try {
     const game = await Game.findOne({ code: req.params.code.toUpperCase() })
       .populate("players.user", "username displayName avatar uid")
@@ -348,7 +370,7 @@ router.get("/:code([A-Za-z0-9]{6})", authenticate, async (req, res) => {
 // @route   GET /api/games/my/active
 // @desc    Get user's active game
 // @access  Private
-router.get("/my/active", authenticate, async (req, res) => {
+router.get("/my/active", verifyFirebaseToken, async (req, res) => {
   try {
     const game = await Game.findOne({
       "players.user": req.user._id,
@@ -386,7 +408,7 @@ router.get("/my/active", authenticate, async (req, res) => {
 // @route   POST /api/games/ready
 // @desc    Toggle ready status
 // @access  Private
-router.post("/ready", authenticate, async (req, res) => {
+router.post("/ready", verifyFirebaseToken, async (req, res) => {
   try {
     const { gameId } = req.body;
 
@@ -421,7 +443,7 @@ router.post("/ready", authenticate, async (req, res) => {
 // @route   POST /api/games/select-token
 // @desc    Select a Monopoly token/piece
 // @access  Private
-router.post("/select-token", authenticate, async (req, res) => {
+router.post("/select-token", verifyFirebaseToken, async (req, res) => {
   try {
     const { gameId, token } = req.body;
 
@@ -469,7 +491,7 @@ router.post("/select-token", authenticate, async (req, res) => {
 // @route   PUT /api/games/settings
 // @desc    Update game settings (host only, only in waiting state)
 // @access  Private
-router.put("/settings", authenticate, async (req, res) => {
+router.put("/settings", verifyFirebaseToken, async (req, res) => {
   try {
     const { gameId, startingBalance, goSalary, maxPlayers } = req.body;
 
@@ -541,7 +563,7 @@ router.put("/settings", authenticate, async (req, res) => {
 // @route   POST /api/games/start
 // @desc    Start the game (host only)
 // @access  Private
-router.post("/start", authenticate, async (req, res) => {
+router.post("/start", verifyFirebaseToken, async (req, res) => {
   try {
     const { gameId } = req.body;
 
@@ -597,123 +619,108 @@ router.post("/start", authenticate, async (req, res) => {
 // @route   POST /api/games/transfer
 // @desc    Transfer money between players or from/to bank
 // @access  Private
-router.post("/transfer", authenticate, async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-  
-  try {
-    const { gameId, toPlayerId, amount, type, description } = req.body;
+router.post("/transfer", verifyFirebaseToken, async (req, res) => {
+  const { gameId, toPlayerId, amount, type, description } = req.body;
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ message: "Invalid amount" });
+  }
 
-    if (!amount || amount <= 0) {
-      await session.abortTransaction();
+  const MAX_RETRIES = 3;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
+    const session = await mongoose.startSession();
+    try {
+      let responsePayload = null;
+      await session.withTransaction(async () => {
+        const game = await Game.findById(gameId).session(session);
+        if (!game) {
+          throw new Error("GAME_NOT_FOUND");
+        }
+        if (game.status !== "in_progress") {
+          throw new Error("GAME_NOT_IN_PROGRESS");
+        }
+
+        const fromPlayer = game.players.find((player) => player.user.toString() === req.user._id.toString());
+        if (!fromPlayer) {
+          throw new Error("PLAYER_NOT_IN_GAME");
+        }
+
+        let toPlayer = null;
+        if (type === "transfer" || type === "rent") {
+          if (!toPlayerId) {
+            throw new Error("RECIPIENT_REQUIRED");
+          }
+          toPlayer = game.players.find((player) => player.user.toString() === toPlayerId);
+          if (!toPlayer) {
+            throw new Error("RECIPIENT_NOT_FOUND");
+          }
+          if (fromPlayer.balance < amount) {
+            throw new Error("INSUFFICIENT_BALANCE");
+          }
+          fromPlayer.balance -= amount;
+          toPlayer.balance += amount;
+        } else if (["bank_pay", "tax", "purchase"].includes(type)) {
+          if (fromPlayer.balance < amount) {
+            throw new Error("INSUFFICIENT_BALANCE");
+          }
+          fromPlayer.balance -= amount;
+        } else if (["bank_receive", "go_salary"].includes(type)) {
+          fromPlayer.balance += amount;
+        }
+
+        game.recordTransaction(req.user._id, toPlayer ? toPlayer.user : null, amount, type, description);
+        game.lastActivity = new Date();
+        await game.save({ session });
+        await game.populate("players.user", "username displayName avatar uid");
+
+        responsePayload = {
+          message: "Transaction successful",
+          players: game.players,
+          transaction: game.transactions[game.transactions.length - 1],
+        };
+      });
+
       session.endSession();
-      return res.status(400).json({ message: "Invalid amount" });
-    }
-
-    // Use findOneAndUpdate with session for atomicity
-    const game = await Game.findById(gameId).session(session);
-    if (!game) {
-      await session.abortTransaction();
+      return res.json(responsePayload);
+    } catch (error) {
       session.endSession();
-      return res.status(404).json({ message: "Game not found" });
-    }
+      lastError = error;
 
-    if (game.status !== "in_progress") {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: "Game is not in progress" });
-    }
-
-    const fromPlayerIndex = game.players.findIndex(
-      (p) => p.user.toString() === req.user._id.toString()
-    );
-
-    if (fromPlayerIndex === -1) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: "You are not in this game" });
-    }
-
-    const fromPlayer = game.players[fromPlayerIndex];
-    let toPlayer = null;
-    let toPlayerIndex = -1;
-    
-    if (type === "transfer" || type === "rent") {
-      // Player to player transfer
-      if (!toPlayerId) {
-        await session.abortTransaction();
-        session.endSession();
+      if (error.message === "GAME_NOT_FOUND") {
+        return res.status(404).json({ message: "Game not found" });
+      }
+      if (error.message === "GAME_NOT_IN_PROGRESS") {
+        return res.status(400).json({ message: "Game is not in progress" });
+      }
+      if (error.message === "PLAYER_NOT_IN_GAME") {
+        return res.status(400).json({ message: "You are not in this game" });
+      }
+      if (error.message === "RECIPIENT_REQUIRED") {
         return res.status(400).json({ message: "Recipient is required" });
       }
-
-      toPlayerIndex = game.players.findIndex(
-        (p) => p.user.toString() === toPlayerId
-      );
-
-      if (toPlayerIndex === -1) {
-        await session.abortTransaction();
-        session.endSession();
+      if (error.message === "RECIPIENT_NOT_FOUND") {
         return res.status(400).json({ message: "Recipient not found in game" });
       }
-
-      toPlayer = game.players[toPlayerIndex];
-
-      if (fromPlayer.balance < amount) {
-        await session.abortTransaction();
-        session.endSession();
+      if (error.message === "INSUFFICIENT_BALANCE") {
         return res.status(400).json({ message: "Insufficient balance" });
       }
 
-      fromPlayer.balance -= amount;
-      toPlayer.balance += amount;
-    } else if (type === "bank_pay" || type === "tax" || type === "purchase") {
-      // Player pays bank
-      if (fromPlayer.balance < amount) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(400).json({ message: "Insufficient balance" });
+      if (attempt < MAX_RETRIES && isTransientTransactionError(error)) {
+        continue;
       }
-      fromPlayer.balance -= amount;
-    } else if (type === "bank_receive" || type === "go_salary") {
-      // Bank pays player
-      fromPlayer.balance += amount;
+      break;
     }
-
-    // Record transaction
-    game.recordTransaction(
-      req.user._id,
-      toPlayer ? toPlayer.user : null,
-      amount,
-      type,
-      description
-    );
-
-    // Update activity timestamp
-    game.lastActivity = new Date();
-    await game.save({ session });
-    
-    await session.commitTransaction();
-    session.endSession();
-
-    await game.populate("players.user", "username displayName avatar uid");
-
-    res.json({
-      message: "Transaction successful",
-      players: game.players,
-      transaction: game.transactions[game.transactions.length - 1],
-    });
-  } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-    console.error("Transfer error:", error);
-    res.status(500).json({ message: "Error processing transfer", error: error.message });
   }
+
+  console.error("Transfer error:", lastError);
+  res.status(500).json({ message: "Error processing transfer", error: lastError?.message || "Unknown error" });
 });
 
 // @route   POST /api/games/request-go
 // @desc    Request GO salary (requires approval from host or another player if requester is host)
 // @access  Private
-router.post("/request-go", authenticate, async (req, res) => {
+router.post("/request-go", verifyFirebaseToken, async (req, res) => {
   try {
     const { gameId } = req.body;
 
@@ -798,7 +805,7 @@ router.post("/request-go", authenticate, async (req, res) => {
 // @route   POST /api/games/request-bank-receive
 // @desc    Request bank receive (requires approval from host or another player if requester is host)
 // @access  Private
-router.post("/request-bank-receive", authenticate, async (req, res) => {
+router.post("/request-bank-receive", verifyFirebaseToken, async (req, res) => {
   try {
     const { gameId, amount, description } = req.body;
 
@@ -875,10 +882,88 @@ router.post("/request-bank-receive", authenticate, async (req, res) => {
   }
 });
 
+// @route   POST /api/games/request-property-trade
+// @desc    Request selling a property to another player (requires buyer approval)
+// @access  Private
+router.post("/request-property-trade", verifyFirebaseToken, async (req, res) => {
+  try {
+    const { gameId, propertyName, targetPlayerId, amount } = req.body;
+
+    if (!propertyName || !targetPlayerId || !amount || amount <= 0) {
+      return res.status(400).json({ message: "Property, target player, and valid amount are required" });
+    }
+
+    const game = await Game.findById(gameId);
+    if (!game) {
+      return res.status(404).json({ message: "Game not found" });
+    }
+
+    if (game.status !== "in_progress") {
+      return res.status(400).json({ message: "Game is not in progress" });
+    }
+
+    const seller = game.players.find((p) => p.user.toString() === req.user._id.toString());
+    if (!seller) {
+      return res.status(400).json({ message: "You are not in this game" });
+    }
+
+    const buyer = game.players.find((p) => p.user.toString() === targetPlayerId.toString());
+    if (!buyer) {
+      return res.status(400).json({ message: "Target player is not in this game" });
+    }
+
+    if (buyer.user.toString() === seller.user.toString()) {
+      return res.status(400).json({ message: "You cannot sell a property to yourself" });
+    }
+
+    const property = seller.properties.find((ownedProperty) => ownedProperty.name === propertyName);
+    if (!property) {
+      return res.status(400).json({ message: "You do not own this property" });
+    }
+
+    if (property.houses > 0) {
+      return res.status(400).json({ message: "Sell houses/hotel before trading this property" });
+    }
+
+    if (property.mortgaged) {
+      return res.status(400).json({ message: "Unmortgage this property before trading" });
+    }
+
+    game.pendingApprovals.push({
+      player: req.user._id,
+      approver: buyer.user,
+      type: "property_trade",
+      amount,
+      description: `Property trade: ${propertyName} for £${amount}`,
+      propertyName,
+      colorGroup: property.colorGroup,
+      targetPlayer: buyer.user,
+      requestedAt: new Date(),
+      status: "pending",
+    });
+
+    game.lastActivity = new Date();
+    await game.save();
+
+    await game.populate("pendingApprovals.player", "username displayName avatar uid");
+    await game.populate("pendingApprovals.approver", "username displayName avatar uid");
+    await game.populate("players.user", "username displayName avatar uid");
+
+    res.json({
+      message: "Property trade request sent for approval",
+      pendingApprovals: game.pendingApprovals.filter((request) => request.status === "pending"),
+      players: game.players,
+    });
+  } catch (error) {
+    console.error("Request property trade error:", error);
+    res.status(500).json({ message: "Error requesting property trade", error: error.message });
+  }
+});
+
 // @route   POST /api/games/approve-request
 // @desc    Approve or deny a pending approval request
 // @access  Private
-router.post("/approve-request", authenticate, async (req, res) => {
+router.post("/approve-request", verifyFirebaseToken, async (req, res) => {
   try {
     const { gameId, requestId, approved } = req.body;
 
@@ -909,23 +994,65 @@ router.post("/approve-request", authenticate, async (req, res) => {
     // Update request status
     request.status = approved ? "approved" : "denied";
 
-    // If approved, add the amount to the player's balance
+    // If approved, process the request
     if (approved) {
-      const player = game.players.find(
-        (p) => p.user.toString() === request.player.toString()
-      );
+      if (request.type === "property_trade") {
+        const seller = game.players.find((p) => p.user.toString() === request.player.toString());
+        const buyer = game.players.find((p) => p.user.toString() === request.approver.toString());
 
-      if (player) {
-        player.balance += request.amount;
+        if (!seller || !buyer) {
+          return res.status(400).json({ message: "Seller or buyer is no longer in the game" });
+        }
 
-        // Record transaction
-        game.recordTransaction(
-          request.player,
-          null,
-          request.amount,
-          request.type,
-          request.description + " (Approved)"
+        const soldPropertyIndex = seller.properties.findIndex(
+          (ownedProperty) => ownedProperty.name === request.propertyName
         );
+
+        if (soldPropertyIndex === -1) {
+          return res.status(400).json({ message: "Property is no longer owned by the seller" });
+        }
+
+        const soldProperty = seller.properties[soldPropertyIndex];
+        if (soldProperty.houses > 0 || soldProperty.mortgaged) {
+          return res.status(400).json({
+            message: "Property must be free of houses/hotel and not mortgaged to complete trade",
+          });
+        }
+
+        if (buyer.balance < request.amount) {
+          return res.status(400).json({ message: "Buyer has insufficient funds" });
+        }
+
+        buyer.balance -= request.amount;
+        seller.balance += request.amount;
+
+        const [movedProperty] = seller.properties.splice(soldPropertyIndex, 1);
+        buyer.properties.push(movedProperty);
+
+        game.recordTransaction(
+          buyer.user,
+          seller.user,
+          request.amount,
+          "property_trade",
+          `Property trade: ${request.propertyName} for £${request.amount}`
+        );
+      } else {
+        const player = game.players.find(
+          (p) => p.user.toString() === request.player.toString()
+        );
+
+        if (player) {
+          player.balance += request.amount;
+
+          // Record transaction
+          game.recordTransaction(
+            request.player,
+            null,
+            request.amount,
+            request.type,
+            request.description + " (Approved)"
+          );
+        }
       }
     }
 
@@ -937,7 +1064,11 @@ router.post("/approve-request", authenticate, async (req, res) => {
     await game.populate("pendingApprovals.approver", "username displayName avatar uid");
     await game.populate("players.user", "username displayName avatar uid");
 
-    const typeLabel = request.type === "go_salary" ? "GO salary" : "Bank receive";
+    const typeLabel = request.type === "go_salary"
+      ? "GO salary"
+      : request.type === "bank_receive"
+      ? "Bank receive"
+      : "Property trade";
     res.json({
       message: approved ? `${typeLabel} approved and paid` : `${typeLabel} request denied`,
       approved,
@@ -953,7 +1084,7 @@ router.post("/approve-request", authenticate, async (req, res) => {
 // @route   POST /api/games/save
 // @desc    Save the game for later (host only) — pauses game, preserves all balances
 // @access  Private
-router.post("/save", authenticate, async (req, res) => {
+router.post("/save", verifyFirebaseToken, async (req, res) => {
   try {
     const { gameId } = req.body;
 
@@ -998,7 +1129,7 @@ router.post("/save", authenticate, async (req, res) => {
 // @route   POST /api/games/end
 // @desc    End the game (host only)
 // @access  Private
-router.post("/end", authenticate, async (req, res) => {
+router.post("/end", verifyFirebaseToken, async (req, res) => {
   try {
     const { gameId, reason } = req.body;
 
@@ -1121,7 +1252,7 @@ router.post("/end", authenticate, async (req, res) => {
 // @route   POST /api/games/activity
 // @desc    Update game activity timestamp
 // @access  Private
-router.post("/activity", authenticate, async (req, res) => {
+router.post("/activity", verifyFirebaseToken, async (req, res) => {
   try {
     const { gameId } = req.body;
 
@@ -1154,7 +1285,7 @@ router.post("/activity", authenticate, async (req, res) => {
 // @route   GET /api/games/check-idle/:gameId
 // @desc    Check if game is idle and handle timeout (30 minutes)
 // @access  Private
-router.get("/check-idle/:gameId", authenticate, async (req, res) => {
+router.get("/check-idle/:gameId", verifyFirebaseToken, async (req, res) => {
   try {
     const game = await Game.findById(req.params.gameId)
       .populate("players.user", "username displayName avatar uid")
@@ -1252,7 +1383,7 @@ router.get("/check-idle/:gameId", authenticate, async (req, res) => {
 // @route   POST /api/games/resume
 // @desc    Resume a saved game (creates a new game with same balances)
 // @access  Private
-router.post("/resume", authenticate, async (req, res) => {
+router.post("/resume", verifyFirebaseToken, async (req, res) => {
   try {
     const { gameId } = req.body;
 
@@ -1349,7 +1480,7 @@ router.post("/resume", authenticate, async (req, res) => {
 // @route   DELETE /api/games/saved/:gameId
 // @desc    Delete a saved game
 // @access  Private
-router.delete("/saved/:gameId", authenticate, async (req, res) => {
+router.delete("/saved/:gameId", verifyFirebaseToken, async (req, res) => {
   try {
     const game = await Game.findById(req.params.gameId);
 
@@ -1373,7 +1504,7 @@ router.delete("/saved/:gameId", authenticate, async (req, res) => {
 // @route   POST /api/games/property/buy
 // @desc    Buy a property (add to player's properties)
 // @access  Private
-router.post("/property/buy", authenticate, async (req, res) => {
+router.post("/property/buy", verifyFirebaseToken, async (req, res) => {
   try {
     const { gameId, propertyName, colorGroup, price } = req.body;
 
@@ -1399,7 +1530,7 @@ router.post("/property/buy", authenticate, async (req, res) => {
 
     game.lastActivity = new Date();
     if (price) {
-      game.recordTransaction(req.user._id, null, price, "purchase", `Bought ${propertyName}`);
+      game.recordTransaction(req.user._id, null, price, "purchase", `Bought ${propertyName} for £${price}`);
     }
     await game.save();
     await game.populate("players.user", "username displayName avatar uid");
@@ -1414,9 +1545,9 @@ router.post("/property/buy", authenticate, async (req, res) => {
 // @route   POST /api/games/property/sell
 // @desc    Sell a property (remove from player's properties)
 // @access  Private
-router.post("/property/sell", authenticate, async (req, res) => {
+router.post("/property/sell", verifyFirebaseToken, async (req, res) => {
   try {
-    const { gameId, propertyName, price } = req.body;
+    const { gameId, propertyName } = req.body;
 
     const game = await Game.findById(gameId);
     if (!game) return res.status(404).json({ message: "Game not found" });
@@ -1425,17 +1556,18 @@ router.post("/property/sell", authenticate, async (req, res) => {
     const player = game.players.find(p => p.user.toString() === req.user._id.toString());
     if (!player) return res.status(400).json({ message: "You are not in this game" });
 
-    const propIndex = player.properties.findIndex(prop => prop.name === propertyName);
-    if (propIndex === -1) return res.status(400).json({ message: "You don't own this property" });
+    const property = player.properties.find((ownedProperty) => ownedProperty.name === propertyName);
+    if (!property) return res.status(400).json({ message: "You don't own this property" });
 
-    if (price) player.balance += price;
-    player.properties.splice(propIndex, 1);
+    if (property.houses > 0) {
+      return res.status(400).json({
+        message: "Sell houses/hotel on this property before listing it for sale",
+      });
+    }
 
-    game.lastActivity = new Date();
-    await game.save();
-    await game.populate("players.user", "username displayName avatar uid");
-
-    res.json({ players: game.players });
+    res.status(400).json({
+      message: "Direct bank selling is disabled. Use property trade requests instead.",
+    });
   } catch (error) {
     console.error("Sell property error:", error);
     res.status(500).json({ message: "Error selling property", error: error.message });
@@ -1445,7 +1577,7 @@ router.post("/property/sell", authenticate, async (req, res) => {
 // @route   POST /api/games/property/house
 // @desc    Add/remove house on a property
 // @access  Private
-router.post("/property/house", authenticate, async (req, res) => {
+router.post("/property/house", verifyFirebaseToken, async (req, res) => {
   try {
     const { gameId, propertyName, action, cost } = req.body;
 
@@ -1459,17 +1591,56 @@ router.post("/property/house", authenticate, async (req, res) => {
     const property = player.properties.find(prop => prop.name === propertyName);
     if (!property) return res.status(400).json({ message: "You don't own this property" });
 
+    if (property.mortgaged) {
+      return res.status(400).json({ message: "Unmortgage the property before adding or removing houses" });
+    }
+
+    const propertyCatalogEntry = PROPERTY_BY_NAME.get(propertyName);
+    const developmentCost = cost || propertyCatalogEntry?.houseCost || 0;
+    const ownsFullSet = hasFullColorSet(player.properties, property.colorGroup);
+
     if (action === "add") {
-      if (property.houses >= 5) return res.status(400).json({ message: "Maximum houses reached (hotel)" });
-      if (cost && player.balance < cost) return res.status(400).json({ message: "Insufficient balance" });
+      if (!canDevelopColorGroup(property.colorGroup)) {
+        return res.status(400).json({ message: "Houses and hotels are only available on color-set properties" });
+      }
+      if (!ownsFullSet) {
+        return res.status(400).json({ message: "You must own the full color group before building houses" });
+      }
+      if (property.houses >= 5) {
+        return res.status(400).json({ message: "Hotel already built on this property" });
+      }
+      if (developmentCost > 0 && player.balance < developmentCost) {
+        return res.status(400).json({ message: "Insufficient balance" });
+      }
+
       property.houses += 1;
-      if (cost) player.balance -= cost;
-      game.recordTransaction(req.user._id, null, cost || 0, "house_purchase", `Bought house on ${propertyName}`);
+      if (developmentCost > 0) {
+        player.balance -= developmentCost;
+      }
+
+      const structureLabel = property.houses === 5 ? "hotel" : "house";
+      game.recordTransaction(
+        req.user._id,
+        null,
+        developmentCost,
+        "purchase",
+        `Built ${structureLabel} on ${propertyName} for £${developmentCost}`
+      );
     } else if (action === "remove") {
       if (property.houses <= 0) return res.status(400).json({ message: "No houses to remove" });
+
       property.houses -= 1;
-      if (cost) player.balance += Math.floor((cost || 0) * 0.5);
-      game.recordTransaction(req.user._id, null, Math.floor((cost || 0) * 0.5), "house_sale", `Sold house on ${propertyName}`);
+      const refundAmount = Math.floor(developmentCost * 0.5);
+      if (refundAmount > 0) {
+        player.balance += refundAmount;
+      }
+      game.recordTransaction(
+        null,
+        req.user._id,
+        refundAmount,
+        "bank_receive",
+        `Sold ${property.houses >= 4 ? "hotel" : "house"} on ${propertyName} for £${refundAmount}`
+      );
     }
 
     game.lastActivity = new Date();
@@ -1487,7 +1658,7 @@ router.post("/property/house", authenticate, async (req, res) => {
 // @route   POST /api/games/property/mortgage
 // @desc    Mortgage or unmortgage a property
 // @access  Private
-router.post("/property/mortgage", authenticate, async (req, res) => {
+router.post("/property/mortgage", verifyFirebaseToken, async (req, res) => {
   try {
     const { gameId, propertyName, action, value } = req.body;
 
@@ -1512,7 +1683,7 @@ router.post("/property/mortgage", authenticate, async (req, res) => {
       if (value && player.balance < value) return res.status(400).json({ message: "Insufficient balance to unmortgage" });
       property.mortgaged = false;
       if (value) player.balance -= value;
-      game.recordTransaction(req.user._id, null, value || 0, "unmortgage", `Unmortgaged ${propertyName}`);
+      game.recordTransaction(req.user._id, null, value || 0, "unmortgage", `Unmortgaged ${propertyName} with 10% interest`);
     }
 
     game.lastActivity = new Date();

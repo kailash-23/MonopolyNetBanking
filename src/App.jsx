@@ -9,7 +9,8 @@ import {
   Settings, 
   Terms,
   GameLobby,
-  GameSession 
+  GameSession,
+  OAuthSuccess
 } from './pages';
 import ErrorBoundary from './components/ErrorBoundary';
 import { authService } from './services/authService';
@@ -67,6 +68,7 @@ function App() {
         <Route path="/" element={<SignIn />} />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/signup" element={<SignUp />} />
+        <Route path="/oauth-success" element={<OAuthSuccess />} />
         <Route path="/profile-setup" element={<ProfileSetup />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/settings" element={<Settings />} />

@@ -51,139 +51,43 @@ const GROUP_LABELS = {
   station: 'Stations', utility: 'Utilities',
 };
 
-/* ====== Amount Picker Component with Tabs ====== */
-function ScrollWheelPicker({ value, onChange, max, min = 1, step = 1 }) {
-  const ITEM_HEIGHT = 44;
-  const VISIBLE = 5;
-  const containerRef = useRef(null);
-  const scrollTimeoutRef = useRef(null);
-  const isScrollingRef = useRef(false);
-  const [mode, setMode] = useState('scroll'); // 'scroll' or 'type'
-  const [visualIndex, setVisualIndex] = useState(0);
-  const inputRef = useRef(null);
+// Define property board order for sorting
+const PROPERTY_ORDER = new Map(MONOPOLY_PROPERTIES.map((property, index) => [property.name, index]));
 
-  // Cleanup scroll timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-    };
-  }, []);
-
-  // Generate values: [min, min+step, min+2*step, ...] up to max
-  const values = useMemo(() => {
-    const vals = [];
-    const start = min || 1;
-    for (let i = start; i <= (max || 10000); i += step) {
-      vals.push(i);
-    }
-    return vals;
-  }, [max, min, step]);
-
-  const minVal = min || 1;
-  const selectedIndex = useMemo(() => {
-    const idx = values.indexOf(parseInt(value) || minVal);
-    return idx >= 0 ? idx : 0;
-  }, [values, value, minVal]);
-
-  // Scroll to selected on mount / value change
-  useEffect(() => {
-    if (containerRef.current && !isScrollingRef.current) {
-      containerRef.current.scrollTop = selectedIndex * ITEM_HEIGHT;
-      setVisualIndex(selectedIndex);
-    }
-  }, [selectedIndex]);
-
-  const handleScroll = () => {
-    if (!containerRef.current) return;
-    // Update visual index immediately for responsive feedback
-    const idx = Math.round(containerRef.current.scrollTop / ITEM_HEIGHT);
-    const clampedIdx = Math.max(0, Math.min(idx, values.length - 1));
-    setVisualIndex(clampedIdx);
-    
-    isScrollingRef.current = true;
-    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-    scrollTimeoutRef.current = setTimeout(() => {
-      if (!containerRef.current) return;
-      containerRef.current.scrollTo({ top: clampedIdx * ITEM_HEIGHT, behavior: 'smooth' });
-      onChange(String(values[clampedIdx]));
-      isScrollingRef.current = false;
-    }, 80);
-  };
-
+/* ====== Simple Amount Input ====== */
+function AmountInput({ value, onChange, max, min = 1 }) {
   const handleInputChange = (val) => {
-    const num = parseInt(val) || 0;
-    const clamped = Math.max(0, Math.min(num, max || 99999));
-    onChange(String(clamped));
-  };
-
-  const handleInputBlur = () => {
-    const num = parseInt(value) || 0;
-    if (num < minVal) {
-      onChange(String(minVal));
+    // Allow empty input
+    if (val === '' || val === '-') {
+      onChange(val);
+      return;
     }
+    const num = parseInt(val) || 0;
+    if (num <= 0) {
+      onChange('');
+      return;
+    }
+    const clamped = Math.max(min || 1, Math.min(num, max || 99999));
+    onChange(String(clamped));
   };
 
   return (
     <div className="amount-picker">
-      <div className="picker-tabs">
-        <button className={`picker-tab ${mode === 'scroll' ? 'active' : ''}`} onClick={() => setMode('scroll')}>
-          Scroll
-        </button>
-        <button className={`picker-tab ${mode === 'type' ? 'active' : ''}`} onClick={() => setMode('type')}>
-          Type
-        </button>
+      <div className="type-input-area">
+        <div className="wheel-input-wrapper">
+          <span className="wheel-currency">£</span>
+          <input
+            type="number"
+            className="wheel-text-input"
+            value={value}
+            onChange={e => handleInputChange(e.target.value)}
+            autoFocus
+            placeholder=""
+            min={min || 1}
+            max={max}
+          />
+        </div>
       </div>
-      
-      {mode === 'type' ? (
-        <div className="type-input-area">
-          <div className="wheel-input-wrapper">
-            <span className="wheel-currency">£</span>
-            <input
-              ref={inputRef}
-              type="number"
-              className="wheel-text-input"
-              value={value}
-              onChange={e => handleInputChange(e.target.value)}
-              onBlur={handleInputBlur}
-              autoFocus
-              placeholder={String(minVal)}
-              min={minVal}
-              max={max}
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="scroll-wheel-picker">
-          <div className="wheel-arrows">
-            <span className="wheel-arrow">▶</span>
-            <span className="wheel-arrow">◀</span>
-          </div>
-          <div className="wheel-fade wheel-fade-top" />
-          <div className="wheel-fade wheel-fade-bottom" />
-          <div
-            className="wheel-scroll"
-            ref={containerRef}
-            onScroll={handleScroll}
-            style={{ height: ITEM_HEIGHT * VISIBLE }}
-          >
-            <div style={{ height: ITEM_HEIGHT * 2 }} />
-            {values.map((v, i) => {
-              const isSelected = i === visualIndex;
-              return (
-                <div key={i} className={`wheel-item ${isSelected ? 'selected' : ''}`} style={{ height: ITEM_HEIGHT }}
-                  onClick={() => {
-                    containerRef.current?.scrollTo({ top: i * ITEM_HEIGHT, behavior: 'smooth' });
-                    setVisualIndex(i);
-                    onChange(String(v));
-                  }}>
-                  £{v.toLocaleString()}
-                </div>
-              );
-            })}
-            <div style={{ height: ITEM_HEIGHT * 2 }} />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -219,8 +123,23 @@ function GameSession() {
   const [leaveSummaryData, setLeaveSummaryData] = useState(null);
 
   const [showPropertyModal, setShowPropertyModal] = useState(false);
-  const [activeTab, setActiveTab] = useState('actions');
+  const [showTradeModal, setShowTradeModal] = useState(false);
+  const [tradeProperty, setTradeProperty] = useState(null);
+  const [tradeBuyerId, setTradeBuyerId] = useState('');
+  const [tradeAmount, setTradeAmount] = useState('');
   const [expandedPropCard, setExpandedPropCard] = useState(null);
+  
+  // Trade modal state - additional
+  const [tradeBuyerMenuOpen, setTradeBuyerMenuOpen] = useState(false);
+  const [tradeWaiting, setTradeWaiting] = useState(false);
+  const [tradeRequestId, setTradeRequestId] = useState(null);
+  const [tradeResult, setTradeResult] = useState(null);
+  
+  // Approval modal timer
+  const [approvalTimer, setApprovalTimer] = useState(15);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [approvalRequest, setApprovalRequest] = useState(null);
+  const approvalTimerRef = useRef();
 
   // Get game ID (handles both _id and id from API)
   const gameId = game?._id || game?.id;
@@ -306,6 +225,50 @@ function GameSession() {
     return () => clearInterval(idleCheck);
   }, [gameId, game?.status]);
 
+  // Approval modal logic for buyer (with timer for property trades)
+  useEffect(() => {
+    const myApproval = pendingApprovals.find(r => (r.approver?._id || r.approver) === user._id);
+    if (myApproval) {
+      setApprovalRequest(myApproval);
+      setShowApprovalModal(true);
+      if (myApproval.type === 'property_trade') {
+        setApprovalTimer(15);
+        if (approvalTimerRef.current) clearInterval(approvalTimerRef.current);
+        approvalTimerRef.current = setInterval(() => {
+          setApprovalTimer(prev => {
+            if (prev <= 1) {
+              clearInterval(approvalTimerRef.current);
+              handleApproveRequest(myApproval._id, false); // auto-reject
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
+    } else {
+      setShowApprovalModal(false);
+      setApprovalRequest(null);
+      setApprovalTimer(15);
+      if (approvalTimerRef.current) clearInterval(approvalTimerRef.current);
+    }
+    // eslint-disable-next-line
+  }, [pendingApprovals, user._id]);
+
+  // Seller: watch for trade result
+  useEffect(() => {
+    if (!tradeWaiting || !tradeRequestId) return;
+    const req = pendingApprovals.find(r => r._id === tradeRequestId);
+    if (req && req.status !== 'pending') {
+      setTradeResult({ status: req.status, message: req.status === 'approved' ? 'Buyer accepted your offer!' : req.status === 'denied' ? 'Buyer rejected your offer.' : 'Request ended.' });
+      setTradeWaiting(false);
+      setTradeRequestId(null);
+      setTimeout(() => {
+        setShowTradeModal(false);
+        setTradeResult(null);
+      }, 3000);
+    }
+  }, [pendingApprovals, tradeWaiting, tradeRequestId]);
+
   // Handle browser back button - show leave confirmation
   useEffect(() => {
     const handlePopState = (e) => {
@@ -336,7 +299,7 @@ function GameSession() {
   const currentPlayer = game?.players?.find(p => (p.user?._id || p.user) === user._id);
 
   // ---- Handlers ----
-  const handleTransfer = async () => {
+  const handleTransfer = useCallback(async () => {
     if (!selectedPlayer || !amount || parseInt(amount) <= 0) return;
     const transferAmount = parseInt(amount);
     const recipientId = selectedPlayer.user?._id || selectedPlayer.user;
@@ -355,9 +318,9 @@ function GameSession() {
       setGame(prev => ({ ...prev, players: data.players }));
     } catch (err) { setError(err.message); refreshInBackground(); }
     finally { setIsProcessing(false); }
-  };
+  }, [selectedPlayer, amount, gameId, description, user._id]);
 
-  const handleBankTransaction = async () => {
+  const handleBankTransaction = useCallback(async () => {
     if (!amount || parseInt(amount) <= 0) return;
     const transactionAmount = parseInt(amount);
     if (bankAction === 'receive') {
@@ -381,22 +344,64 @@ function GameSession() {
       setGame(prev => ({ ...prev, players: data.players }));
     } catch (err) { setError(err.message); refreshInBackground(); }
     finally { setIsProcessing(false); }
-  };
+  }, [amount, bankAction, gameId, description, user._id, hasPendingBankRequest]);
 
-  const handleCollectGo = async () => {
+  const handleCollectGo = useCallback(async () => {
     if (hasPendingGoRequest) { setError('You already have a pending GO request'); return; }
     try { soundService.playClick(); const data = await gameService.requestGoSalary(gameId);
       setHasPendingGoRequest(true); if (data.pendingApprovals) setPendingApprovals(data.pendingApprovals);
     } catch (err) { setError(err.message); }
-  };
+  }, [gameId, hasPendingGoRequest]);
 
-  const handleApproveRequest = async (requestId, approved) => {
+  const handleApproveRequest = useCallback(async (requestId, approved) => {
     try { soundService.playClick();
       const data = await gameService.approveRequest(gameId, requestId, approved);
       if (data.players) setGame(prev => ({ ...prev, players: data.players }));
       if (data.pendingApprovals) setPendingApprovals(data.pendingApprovals);
       if (approved) soundService.playSuccess();
     } catch (err) { setError(err.message); }
+  }, [gameId]);
+
+  const openTradeModal = useCallback((propertyName) => {
+    setTradeProperty(propertyName);
+    setTradeAmount('');
+    setTradeBuyerId('');
+    setShowTradeModal(true);
+  }, []);
+
+  const closeTradeModal = useCallback(() => {
+    setShowTradeModal(false);
+    setTradeProperty(null);
+    setTradeBuyerId('');
+    setTradeBuyerMenuOpen(false);
+    setTradeAmount('');
+    setTradeWaiting(false);
+    setTradeResult(null);
+  }, []);
+
+  const handleRequestPropertyTrade = async () => {
+    if (!tradeProperty || !tradeBuyerId || !tradeAmount || parseInt(tradeAmount, 10) <= 0) {
+      setError('Choose a buyer and valid amount for the property trade');
+      return;
+    }
+    try {
+      setIsProcessing(true);
+      soundService.playClick();
+      const data = await gameService.requestPropertyTrade(gameId, tradeProperty, tradeBuyerId, parseInt(tradeAmount, 10));
+      if (data.pendingApprovals) {
+        setPendingApprovals(data.pendingApprovals);
+        const req = data.pendingApprovals.find(r => r.type === 'property_trade' && (r.player?._id || r.player) === user._id && r.propertyName === tradeProperty && r.status === 'pending');
+        if (req) {
+          setTradeRequestId(req._id);
+          setTradeWaiting(true);
+        }
+      }
+      soundService.playSuccess();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const buildSummaryData = (extra = {}) => ({
@@ -405,7 +410,7 @@ function GameSession() {
       name: p.user?.displayName || p.user?.username, avatar: p.user?.avatar,
       balance: p.balance, color: p.color, properties: p.properties || [],
       isYou: (p.user?._id || p.user) === user._id,
-    })).sort((a, b) => b.balance - a.balance),
+    })).sort((a, b) => calculateNetWorth(b) - calculateNetWorth(a)),
     wasHost: isHost,
     totalTransactions: game.transactions?.length || 0,
     gameDuration: game.startedAt ? Math.floor((Date.now() - new Date(game.startedAt).getTime()) / 60000) : 0,
@@ -447,22 +452,11 @@ function GameSession() {
     } catch (err) { setError(err.message); }
   };
 
-  const handleSellProperty = async (propertyName) => {
-    const prop = MONOPOLY_PROPERTIES.find(p => p.name === propertyName);
-    try { soundService.playClick();
-      const data = await gameService.sellProperty(gameId, propertyName, prop ? Math.floor(prop.price / 2) : 0);
-      setGame(prev => ({ ...prev, players: data.players }));
-    } catch (err) { setError(err.message); }
-  };
-
-  const handleManageHouse = async (propertyName, action) => {
-    try { soundService.playClick();
-      const prop = MONOPOLY_PROPERTIES.find(p => p.name === propertyName);
-      const cost = prop?.houseCost || 0;
-      const data = await gameService.manageHouse(gameId, propertyName, action, cost);
-      setGame(prev => ({ ...prev, players: data.players }));
-      if (action === 'add') soundService.playSuccess();
-    } catch (err) { setError(err.message); }
+  const openPropertyTradeModal = (propertyName) => {
+    setTradeProperty(propertyName);
+    setTradeAmount('');
+    setTradeBuyerId('');
+    setShowTradeModal(true);
   };
 
   const handleMortgage = async (propertyName, action) => {
@@ -501,7 +495,7 @@ function GameSession() {
 
   const availableProperties = useMemo(() => MONOPOLY_PROPERTIES.filter(p => !allOwnedProperties.has(p.name)), [allOwnedProperties]);
 
-  // Group owned properties by category
+  // Group owned properties by category, sorted by board order
   const groupedMyProperties = useMemo(() => {
     const props = currentPlayer?.properties || [];
     const groups = {};
@@ -509,7 +503,18 @@ function GameSession() {
       if (!groups[p.colorGroup]) groups[p.colorGroup] = [];
       groups[p.colorGroup].push(p);
     });
-    return groups;
+    // Sort properties within each group by board order
+    Object.keys(groups).forEach(group => {
+      groups[group].sort((a, b) => (PROPERTY_ORDER.get(a.name) ?? 999) - (PROPERTY_ORDER.get(b.name) ?? 999));
+    });
+    // Sort groups by first property's board position
+    const sortedGroups = {};
+    Object.entries(groups)
+      .sort(([, aProps], [, bProps]) => (PROPERTY_ORDER.get(aProps[0].name) ?? 999) - (PROPERTY_ORDER.get(bProps[0].name) ?? 999))
+      .forEach(([group, props]) => {
+        sortedGroups[group] = props;
+      });
+    return sortedGroups;
   }, [currentPlayer?.properties]);
 
   // Calculate player net worth: balance + property values + house values
@@ -518,9 +523,16 @@ function GameSession() {
     (player.properties || []).forEach(prop => {
       const propData = MONOPOLY_PROPERTIES.find(p => p.name === prop.name);
       if (propData) {
-        netWorth += propData.price; // Add property value
-        netWorth += (prop.houses || 0) * (propData.houseCost || 0); // Add house values
-        if (prop.mortgaged) netWorth -= Math.floor(propData.price / 2); // Subtract mortgage loss
+        if (prop.mortgaged) {
+          // Mortgaged properties are valued at their mortgage amount
+          netWorth += Math.floor(propData.price / 2);
+        } else {
+          // Unmortgaged properties: add property value + house values
+          netWorth += propData.price;
+          // Add house values (each house is worth the house cost)
+          netWorth += (prop.houses || 0) * (propData.houseCost || 0);
+          // Note: Hotels are typically represented as 5 houses, so they're already counted
+        }
       }
     });
     return netWorth;
@@ -568,7 +580,7 @@ function GameSession() {
   if ((game?.status === 'finished' || idleEnded) && !showLeaveSummary) {
     const isIdleTimeout = idleEnded || game?.endReason === 'idle_timeout';
     const isSaved = game?.endReason === 'saved';
-    const sortedPlayers = [...(game?.players || [])].sort((a, b) => b.balance - a.balance);
+    const sortedPlayers = [...(game?.players || [])].sort((a, b) => calculateNetWorth(b) - calculateNetWorth(a));
     return (
       <div className="game-session">
         <div className="bg-blob bg-blob--pink"></div><div className="bg-blob bg-blob--beige"></div><div className="bg-blob bg-blob--purple"></div>
@@ -592,7 +604,7 @@ function GameSession() {
                   <div className="ended-player-avatar">
                     {player.user?.avatar ? <img src={player.user.avatar} alt="" /> :
                       <span>{getInitials(player.user?.displayName || player.user?.username)}</span>}
-                    <div className={`mini-dot ${player.color}`}></div>
+                    {player.token && <TokenIcon token={player.token} size={14} color="#333" />}
                   </div>
                   <div className="ended-player-info">
                     <span className="ended-player-name">
@@ -626,13 +638,10 @@ function GameSession() {
     <div className="game-session">
       <div className="bg-blob bg-blob--pink"></div><div className="bg-blob bg-blob--beige"></div><div className="bg-blob bg-blob--purple"></div>
 
-      {/* Header */}
+      {/* Header - Minimized */}
       <header className="session-header">
-        <div className="header-left"><span className="game-code-badge">{game?.code}</span></div>
-        <div className="header-center">
-          <img src={mrMonopolyImg} alt="" className="header-logo" />
-          <span className="header-title">{game?.name}</span>
-        </div>
+        <div className="header-left"></div>
+        <div className="header-center"></div>
         <button className="menu-btn" onClick={() => { soundService.playClick(); setShowEndConfirm(true); }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
         </button>
@@ -644,7 +653,6 @@ function GameSession() {
           <span className="balance-label">Your Balance</span>
           <div className="balance-identity">
             {currentPlayer?.token && <span className="balance-token"><TokenIcon token={currentPlayer.token} size={32} color="#fff" /></span>}
-            <div className={`color-dot ${currentPlayer?.color}`}></div>
           </div>
         </div>
         <div className="balance-amount">{formatMoney(currentPlayer?.balance)}</div>
@@ -655,12 +663,12 @@ function GameSession() {
         </div>
       </div>
 
-      {/* Recent Transactions Preview - only show when NOT on stats tab */}
-      {activeTab !== 'stats' && (game?.transactions?.length || 0) > 0 && (
+      {/* Recent Transactions Preview */}
+      {(game?.transactions?.length || 0) > 0 && (
         <div className="recent-transactions-preview">
           <div className="recent-header">
             <span className="recent-title">Recent Activity</span>
-            <button className="see-all-btn" onClick={() => setActiveTab('stats')}>See all</button>
+            <button className="see-all-btn" onClick={() => document.querySelector('.stats-section')?.scrollIntoView({ behavior: 'smooth' })}>See all</button>
           </div>
           <div className="recent-list">
             {(game?.transactions || []).slice().reverse().slice(0, 3).map((tx, idx) => {
@@ -677,6 +685,8 @@ function GameSession() {
               let icon = '💸';
               if (tx.type === 'go_salary') icon = '🎯';
               else if (tx.type === 'bank_receive' || tx.type === 'bank_pay') icon = '🏦';
+              else if (tx.type === 'property_purchase') icon = '🏘';
+              else if (tx.type === 'rent') icon = '🏠';
               else if (tx.type === 'rent') icon = '🏠';
               
               return (
@@ -697,21 +707,8 @@ function GameSession() {
         </div>
       )}
 
-      {/* Tab Navigation */}
-      <div className="session-tabs">
-        {['actions', 'properties', 'stats'].map(tab => (
-          <button key={tab} className={`session-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
-            {tab === 'actions' && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M16 8l-8 8M8 8l8 8"/></svg>}
-            {tab === 'properties' && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>}
-            {tab === 'stats' && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>}
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* ======= Actions Tab ======= */}
-      {activeTab === 'actions' && (
-        <div className="tab-content">
+      {/* ======= Actions Section ======= */}
+      <div className="actions-section">
           <div className="quick-actions">
             <button className={`quick-action collect-go ${hasPendingGoRequest ? 'pending' : ''}`} onClick={handleCollectGo} disabled={hasPendingGoRequest}>
               <div className="qa-icon go-icon">
@@ -720,7 +717,7 @@ function GameSession() {
               <span className="qa-label">{hasPendingGoRequest ? 'Pending...' : 'Collect GO'}</span>
               <span className="qa-amount">+£{game?.goSalary || 200}</span>
             </button>
-            <button className="quick-action bank" onClick={() => { soundService.playClick(); setAmount('1'); setShowBankModal(true); }}>
+            <button className="quick-action bank" onClick={() => { soundService.playClick(); setAmount('-'); setShowBankModal(true); }}>
               <div className="qa-icon bank-icon">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M3 21h18"/><path d="M3 10h18"/><path d="M12 3l9 7H3l9-7z"/><path d="M5 10v11"/><path d="M19 10v11"/><path d="M9 10v11"/><path d="M15 10v11"/>
@@ -770,13 +767,15 @@ function GameSession() {
                 <button key={player.user?._id || index} className="player-row"
                   onClick={() => { soundService.playClick(); setSelectedPlayer(player); setAmount('1'); setShowTransferModal(true); }}>
                   <div className="player-avatar">
-                    {player.user?.avatar ? <img src={player.user.avatar} alt="" /> :
-                      <span>{getInitials(player.user?.displayName || player.user?.username)}</span>}
-                    <div className={`color-dot ${player.color}`}></div>
+                    {player.token ? (
+                      <span className="player-avatar-token"><TokenIcon token={player.token} size={32} color="#555" /></span>
+                    ) : (
+                      player.user?.avatar ? <img src={player.user.avatar} alt="" /> :
+                      <span>{getInitials(player.user?.displayName || player.user?.username)}</span>
+                    )}
                   </div>
                   <div className="player-details">
                     <span className="player-name">
-                      {player.token && <span className="player-token-icon"><TokenIcon token={player.token} size={18} color="#555" /> </span>}
                       {player.user?.displayName || player.user?.username}
                     </span>
                     <span className="player-balance">{formatMoney(player.balance)}</span>
@@ -786,12 +785,10 @@ function GameSession() {
               ))}
             </div>
           </div>
-        </div>
-      )}
+      </div>
 
-      {/* ======= Properties Tab ======= */}
-      {activeTab === 'properties' && (
-        <div className="tab-content">
+      {/* ======= Properties Section ======= */}
+      <div className="properties-section">
           <div className="my-properties-section">
             <div className="section-header-row">
               <h3>My Properties ({currentPlayer?.properties?.length || 0})</h3>
@@ -832,20 +829,18 @@ function GameSession() {
                               {isExpanded && (
                                 <div className="prop-card-actions" onClick={e => e.stopPropagation()}>
                                   {!prop.mortgaged && (
-                                    <>
-                                      {(() => { const propData = MONOPOLY_PROPERTIES.find(p => p.name === prop.name); return <button className="pca-btn add" onClick={() => handleManageHouse(prop.name, 'add')} disabled={prop.houses >= 5 || currentPlayer.balance < (propData?.houseCost || 0)}>+🏠 £{propData?.houseCost || 0}</button>; })()}
-                                      {prop.houses > 0 && <button className="pca-btn remove" onClick={() => handleManageHouse(prop.name, 'remove')}>-🏠</button>}
-                                      <button className="pca-btn mortgage" onClick={() => handleMortgage(prop.name, 'mortgage')}>
-                                        Mortgage £{mortgageVal}
-                                      </button>
-                                    </>
+                                    <button className="pca-btn mortgage" onClick={() => handleMortgage(prop.name, 'mortgage')}>
+                                      Mortgage £{mortgageVal}
+                                    </button>
                                   )}
                                   {prop.mortgaged && (
                                     <button className="pca-btn unmortgage" onClick={() => handleMortgage(prop.name, 'unmortgage')}>
                                       Unmortgage £{Math.floor((propData?.price || 0) * 0.55)}
                                     </button>
                                   )}
-                                  <button className="pca-btn sell" onClick={() => handleSellProperty(prop.name)}>Sell £{mortgageVal}</button>
+                                  <button className="pca-btn sell" onClick={() => openPropertyTradeModal(prop.name)} disabled={prop.mortgaged}>
+                                    Offer to Player
+                                  </button>
                                 </div>
                               )}
                             </div>
@@ -872,7 +867,6 @@ function GameSession() {
               {otherPlayers.filter(p => (p.properties?.length || 0) > 0).map((player, idx) => (
                 <div key={idx} className="other-player-props">
                   <div className="other-player-header">
-                    <div className={`mini-dot ${player.color}`}></div>
                     <span>{player.token && <span className="player-token-icon"><TokenIcon token={player.token} size={16} color="#555" /> </span>}{player.user?.displayName || player.user?.username}</span>
                     <span className="prop-count">{player.properties.length}</span>
                   </div>
@@ -891,11 +885,9 @@ function GameSession() {
             </div>
           )}
         </div>
-      )}
 
-      {/* ======= Stats Tab ======= */}
-      {activeTab === 'stats' && (
-        <div className="tab-content">
+      {/* ======= Stats Section ======= */}
+      <div className="stats-section">
           <div className="game-stats-section">
             <h3>Game Overview</h3>
             <div className="stats-grid">
@@ -908,17 +900,13 @@ function GameSession() {
 
           <div className="leaderboard-section">
             <h3>Player Resources</h3>
-            {[...(game?.players || [])].sort((a, b) => b.balance - a.balance).map((player, idx) => {
+            {[...(game?.players || [])].sort((a, b) => calculateNetWorth(b) - calculateNetWorth(a)).map((player, idx) => {
               const isYou = (player.user?._id || player.user) === user._id;
-              const netWorth = player.balance + (player.properties?.reduce((sum, p) => {
-                const propData = MONOPOLY_PROPERTIES.find(mp => mp.name === p.name);
-                return sum + (propData?.price || 0) * (p.mortgaged ? 0.5 : 1);
-              }, 0) || 0);
+              const netWorth = calculateNetWorth(player);
               return (
                 <div key={idx} className={`leaderboard-row ${isYou ? 'is-you' : ''}`}>
                   <span className="lb-rank">{idx === 0 ? '👑' : `#${idx + 1}`}</span>
                   <div className="lb-player">
-                    <div className={`mini-dot ${player.color}`}></div>
                     <div className="lb-player-info">
                       <span className="lb-name">{player.token && <span className="player-token-icon"><TokenIcon token={player.token} size={18} color="#555" /> </span>}{player.user?.displayName || player.user?.username}{isYou && <span className="you-tag">You</span>}</span>
                       <div className="lb-details">
@@ -948,9 +936,8 @@ function GameSession() {
                 <div key={player.id || idx} className="ownership-player-card">
                   <div className="ownership-player-header">
                     <div className="ownership-player-left">
-                      <div className={`mini-dot ${player.color}`}></div>
+                      {player.token && <span className="player-token-icon"><TokenIcon token={player.token} size={16} color="#555" /> </span>}
                       <span className="ownership-player-name">
-                        {player.token && <span className="player-token-icon"><TokenIcon token={player.token} size={16} color="#555" /> </span>}
                         {player.name}
                         {isYou && <span className="you-tag">You</span>}
                       </span>
@@ -1027,7 +1014,6 @@ function GameSession() {
             </div>
           )}
         </div>
-      )}
 
       {/* Error */}
       {error && <div className="error-toast">{error}<button onClick={() => setError('')}>×</button></div>}
@@ -1048,7 +1034,7 @@ function GameSession() {
                 </div>
                 <span>Their balance: {formatMoney(selectedPlayer.balance)}</span>
               </div>
-              <ScrollWheelPicker value={amount} onChange={setAmount} max={currentPlayer?.balance || 0} step={1} />
+              <AmountInput value={amount} onChange={setAmount} max={currentPlayer?.balance || 0} />
               <div className="form-group">
                 <label>Note (optional)</label>
                 <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="Rent, trade, etc." />
@@ -1078,7 +1064,7 @@ function GameSession() {
                 <button className={`bank-tab ${bankAction === 'receive' ? 'active' : ''}`} onClick={() => setBankAction('receive')}>Receive</button>
                 <button className={`bank-tab ${bankAction === 'pay' ? 'active' : ''}`} onClick={() => setBankAction('pay')}>Pay</button>
               </div>
-              <ScrollWheelPicker value={amount} onChange={setAmount} max={bankAction === 'pay' ? (currentPlayer?.balance || 0) : 10000} step={1} />
+              <AmountInput value={amount} onChange={setAmount} max={bankAction === 'pay' ? (currentPlayer?.balance || 0) : 10000} />
               <div className="form-group">
                 <label>Reason (optional)</label>
                 <input type="text" value={description} onChange={e => setDescription(e.target.value)}
@@ -1140,6 +1126,112 @@ function GameSession() {
               ) : (
                 <div className="all-properties-owned"><p>All properties have been purchased!</p></div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Trade Modal */}
+      {showTradeModal && (
+        <div className="modal-overlay" style={{ zIndex: 1000 }}>
+          <div className="modal trade-modal" style={{ maxWidth: 420, padding: 0 }}>
+            <div className="modal-header">
+              <h2>Offer {tradeProperty}</h2>
+            </div>
+            <div className="modal-body">
+              {tradeWaiting ? (
+                <div className="trade-waiting">
+                  <p>Waiting for buyer to respond...</p>
+                  <div className="spinner" style={{ margin: '16px auto' }}></div>
+                  {tradeResult && <div className={`trade-result ${tradeResult.status}`}>{tradeResult.message}</div>}
+                </div>
+              ) : (
+                <>
+                  <div className="trade-buyer-row">
+                    <span>Buyer</span>
+                    <div className="trade-buyer-select" onClick={() => setTradeBuyerMenuOpen(!tradeBuyerMenuOpen)}>
+                      {tradeBuyerId ? (
+                        <>
+                          <span className="trade-buyer-avatar">{otherPlayers.find(p => (p.user?._id || p.user) === tradeBuyerId)?.user?.displayName?.[0] || 'B'}</span>
+                          <span>{otherPlayers.find(p => (p.user?._id || p.user) === tradeBuyerId)?.user?.displayName || otherPlayers.find(p => (p.user?._id || p.user) === tradeBuyerId)?.user?.username}</span>
+                          <span className="trade-buyer-balance">£{otherPlayers.find(p => (p.user?._id || p.user) === tradeBuyerId)?.balance || 0}</span>
+                        </>
+                      ) : <span>Select buyer</span>}
+                      <span className="trade-buyer-caret">▼</span>
+                    </div>
+                    {tradeBuyerMenuOpen && (
+                      <div className="trade-buyer-menu">
+                        {otherPlayers.map(player => (
+                          <div key={player.user?._id || player.user} className="trade-buyer-menu-item" onClick={() => { setTradeBuyerId(player.user?._id || player.user); setTradeBuyerMenuOpen(false); }}>
+                            <span className="trade-buyer-avatar">{player.user?.displayName?.[0] || 'P'}</span>
+                            <span>{player.user?.displayName || player.user?.username}</span>
+                            <span className="trade-buyer-balance">£{player.balance}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="trade-amount-row">
+                    <span>£</span>
+                    <input type="number" value={tradeAmount} onChange={e => setTradeAmount(e.target.value)} min={1} placeholder="Amount" />
+                  </div>
+                  <div className="trade-note-row">
+                    <input type="text" value={`Property trade request for ${tradeProperty}`} disabled />
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="modal-footer">
+              {tradeWaiting ? (
+                <button className="btn-secondary" onClick={closeTradeModal}>Close</button>
+              ) : (
+                <>
+                  <button className="btn-secondary" onClick={closeTradeModal}>Cancel</button>
+                  <button className="btn-primary" onClick={handleRequestPropertyTrade} disabled={isProcessing}>Request £{tradeAmount || ''}</button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approval Modal */}
+      {showApprovalModal && approvalRequest && (
+        <div className="modal-overlay" style={{ zIndex: 1000 }}>
+          <div className="modal approval-modal" style={{ maxWidth: 420, padding: 0 }}>
+            <div className="modal-header">
+              <h2>Approve Request</h2>
+            </div>
+            <div className="modal-body">
+              {approvalRequest.type === 'property_trade' && (
+                <>
+                  <p><b>Property Trade Offer</b></p>
+                  <p><b>From:</b> {approvalRequest.player?.displayName || approvalRequest.player?.username}</p>
+                  <p><b>Property:</b> {approvalRequest.propertyName}</p>
+                  <p><b>Amount:</b> £{approvalRequest.amount}</p>
+                  <p>Do you want to accept this trade? If you accept, the property and money will be exchanged instantly.</p>
+                  <div style={{marginTop: 8, color: '#c00', fontWeight: 'bold'}}>Time left: {approvalTimer}s</div>
+                </>
+              )}
+              {approvalRequest.type === 'bank_receive' && (
+                <>
+                  <p><b>Bank Receive</b></p>
+                  <p><b>From:</b> Bank</p>
+                  <p><b>Amount:</b> £{approvalRequest.amount}</p>
+                  <p>Approve to receive this amount from the bank.</p>
+                </>
+              )}
+              {approvalRequest.type === 'go_salary' && (
+                <>
+                  <p><b>Collect GO</b></p>
+                  <p><b>Amount:</b> £{approvalRequest.amount}</p>
+                  <p>Approve to collect your GO salary.</p>
+                </>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => handleApproveRequest(approvalRequest._id, false)}>Reject</button>
+              <button className="btn-primary" onClick={() => handleApproveRequest(approvalRequest._id, true)}>Accept</button>
             </div>
           </div>
         </div>

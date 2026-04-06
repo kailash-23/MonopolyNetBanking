@@ -1,328 +1,132 @@
-/**
- * Authentication Service
- * 
- * Handles authentication operations with the backend API.
- */
-
+import { signOut } from "firebase/auth";
+import { auth } from "./firebaseService";
 import { authFetch } from "../utils/apiClient";
 
-// Use environment variable for API URL, fallback to relative URL (proxied by Vite in dev)
-const API_BASE = import.meta.env.VITE_API_URL || "";
-const API_URL = `${API_BASE}/api/auth`;
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+const AUTH_URL = `${API_BASE}/api/auth`;
+const FRIENDS_URL = `${API_BASE}/api/friends`;
 
-/**
- * Authentication service object
- * All methods are async to match real API behavior
- */
+const parseResponse = async (response) => {
+  const text = await response.text();
+  if (!text) {
+    return response.ok ? {} : { message: "Unexpected server response" };
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    return response.ok ? {} : { message: text };
+  }
+};
+
+const createAuthHeaders = (includeJson = true) => {
+  const token = localStorage.getItem("authToken");
+  const headers = includeJson ? { "Content-Type": "application/json" } : {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+};
+
 export const authService = {
-  /**
-   * Sign up a new user
-   * @param {Object} credentials - User credentials
-   * @param {string} credentials.username - Username
-   * @param {string} credentials.password - Password
-   * @returns {Promise<Object>} - User data on success
-   * @throws {Error} - Error message on failure
-   */
-  async signUp({ username, password }) {
-    let response;
+  getCurrentUser: () => {
     try {
-      response = await authFetch(`${API_URL}/signup`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-      });
-    } catch (error) {
-      if (error instanceof TypeError) {
-        throw new Error("Cannot reach server. Please make sure backend is running on port 4000.");
-      }
-      throw error;
+      return JSON.parse(localStorage.getItem("user"));
+    } catch {
+      return null;
     }
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Something went wrong. Please try again.");
-    }
-
-    return data.user;
   },
 
-  /**
-   * Sign in an existing user
-   * @param {Object} credentials - User credentials
-   * @param {string} credentials.username - Username
-   * @param {string} credentials.password - Password
-   * @returns {Promise<Object>} - User data and token on success
-   * @throws {Error} - Error message on failure
-   */
-  async signIn({ username, password }) {
-    let response;
+  getToken: () => localStorage.getItem("authToken"),
+
+  isAuthenticated: () => Boolean(localStorage.getItem("authToken") && localStorage.getItem("user")),
+
+  logout: async () => {
     try {
-      response = await authFetch(`${API_URL}/signin`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-      });
+      await signOut(auth);
     } catch (error) {
-      if (error instanceof TypeError) {
-        throw new Error("Cannot reach server. Please make sure backend is running on port 4000.");
-      }
-      throw error;
+      // Ignore errors when auth instance is already signed out
     }
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Invalid username or password.");
-    }
-
-    // Store token and user in localStorage
-    localStorage.setItem("authToken", data.token);
-    localStorage.setItem("user", JSON.stringify(data.user));
-
-    return { user: data.user, token: data.token };
-  },
-
-  /**
-   * Sign out the current user
-   * @returns {Promise<void>}
-   */
-  async signOut() {
-    localStorage.removeItem("authToken");
     localStorage.removeItem("user");
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("authSource");
   },
 
-  /**
-   * Get the current authenticated user
-   * @returns {Object|null} - User data or null if not authenticated
-   */
-  getCurrentUser() {
-    const userStr = localStorage.getItem("user");
-    return userStr ? JSON.parse(userStr) : null;
-  },
-
-  /**
-   * Check if user is authenticated
-   * @returns {boolean}
-   */
-  isAuthenticated() {
-    return !!localStorage.getItem("authToken");
-  },
-
-  /**
-   * Get the authentication token
-   * @returns {string|null}
-   */
-  getToken() {
-    return localStorage.getItem("authToken");
-  },
-
-  /**
-   * Sign in with Google
-   * @param {Object} userInfo - Google user info (googleId, email, name, picture)
-   * @returns {Promise<Object>} - User data, token, and isNewUser flag on success
-   */
-  async signInWithGoogle(userInfo) {
-    let response;
-    try {
-      response = await authFetch(`${API_URL}/oauth/google`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(userInfo),
-      });
-    } catch (error) {
-      if (error instanceof TypeError) {
-        throw new Error("Cannot reach server. Please make sure backend is running on port 4000.");
-      }
-      throw error;
-    }
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Google authentication failed.");
-    }
-
-    localStorage.setItem("authToken", data.token);
-    localStorage.setItem("user", JSON.stringify(data.user));
-
-    return { user: data.user, token: data.token, isNewUser: data.isNewUser };
-  },
-
-  /**
-   * Complete profile setup for new OAuth users
-   * @param {Object} profileData - Profile data (username, displayName)
-   * @returns {Promise<Object>} - Updated user data
-   */
   async completeProfile({ username, displayName }) {
-    const token = this.getToken();
-    
-    const response = await authFetch(`${API_URL}/complete-profile`, {
+    const response = await authFetch(`${AUTH_URL}/complete-profile`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
+      headers: createAuthHeaders(),
       body: JSON.stringify({ username, displayName }),
     });
 
-    const data = await response.json();
-
+    const data = await parseResponse(response);
     if (!response.ok) {
       throw new Error(data.message || "Failed to complete profile.");
     }
 
-    // Update stored user data
-    localStorage.setItem("user", JSON.stringify(data.user));
+    if (data?.user) {
+      localStorage.setItem("user", JSON.stringify(data.user));
+    }
 
     return data.user;
   },
 
-  /**
-   * Check if username is available
-   * @param {string} username - Username to check
-   * @returns {Promise<Object>} - Availability status
-   */
   async checkUsername(username) {
-    const response = await authFetch(`${API_URL}/check-username`, {
+    const response = await authFetch(`${AUTH_URL}/check-username`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username }),
     });
 
-    return response.json();
+    return parseResponse(response);
   },
 
-  /**
-   * Sign in with Apple
-   * @param {Object} appleResponse - Apple auth response
-   * @returns {Promise<Object>} - User data and token on success
-   */
-  async signInWithApple(identityToken, user) {
-    const response = await authFetch(`${API_URL}/oauth/apple`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ identityToken, user }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Apple authentication failed.");
-    }
-
-    localStorage.setItem("authToken", data.token);
-    localStorage.setItem("user", JSON.stringify(data.user));
-
-    return { user: data.user, token: data.token };
-  },
-
-  /**
-   * Update user profile
-   * @param {Object} profileData - Profile data to update
-   * @returns {Promise<Object>} - Updated user data
-   */
   async updateProfile(profileData) {
-    const token = this.getToken();
-    
-    const response = await authFetch(`${API_URL}/profile`, {
+    const response = await authFetch(`${AUTH_URL}/profile`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
+      headers: createAuthHeaders(),
       body: JSON.stringify(profileData),
     });
 
-    const data = await response.json();
-
+    const data = await parseResponse(response);
     if (!response.ok) {
       throw new Error(data.message || "Failed to update profile.");
     }
 
-    localStorage.setItem("user", JSON.stringify(data.user));
+    if (data?.user) {
+      localStorage.setItem("user", JSON.stringify(data.user));
+    }
+
     return { success: true, user: data.user };
   },
 
-  /**
-   * Change password
-   * @param {Object} passwordData - Current and new password
-   * @returns {Promise<Object>} - Success message
-   */
-  async changePassword({ currentPassword, newPassword }) {
-    const token = this.getToken();
-    
-    const response = await authFetch(`${API_URL}/password`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
-      body: JSON.stringify({ currentPassword, newPassword }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Failed to change password.");
-    }
-
-    return data;
-  },
-
-  /**
-   * Update user settings
-   * @param {Object} settings - Settings to update
-   * @returns {Promise<Object>} - Updated user data
-   */
   async updateSettings(settings) {
-    const token = this.getToken();
-    
-    const response = await authFetch(`${API_URL}/settings`, {
+    const response = await authFetch(`${AUTH_URL}/settings`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
+      headers: createAuthHeaders(),
       body: JSON.stringify({ settings }),
     });
 
-    const data = await response.json();
-
+    const data = await parseResponse(response);
     if (!response.ok) {
       throw new Error(data.message || "Failed to update settings.");
     }
 
-    localStorage.setItem("user", JSON.stringify(data.user));
+    if (data?.user) {
+      localStorage.setItem("user", JSON.stringify(data.user));
+    }
+
     return { success: true, user: data.user };
   },
 
-  /**
-   * Send password reset email
-   * @param {string} email - User's email address
-   * @returns {Promise<Object>} - Success message
-   */
   async sendPasswordReset(email) {
-    const response = await authFetch(`${API_URL}/password-reset`, {
+    const response = await authFetch(`${AUTH_URL}/password-reset`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
 
-    const data = await response.json();
-
+    const data = await parseResponse(response);
     if (!response.ok) {
       throw new Error(data.message || "Failed to send reset email.");
     }
@@ -330,21 +134,12 @@ export const authService = {
     return { success: true, message: data.message };
   },
 
-  /**
-   * Get user stats and game history
-   * @returns {Promise<Object>} - Stats and game history
-   */
   async getStats() {
-    const token = this.getToken();
-    
-    const response = await authFetch(`${API_URL}/stats`, {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-      },
+    const response = await authFetch(`${AUTH_URL}/stats`, {
+      headers: createAuthHeaders(false),
     });
 
-    const data = await response.json();
-
+    const data = await parseResponse(response);
     if (!response.ok) {
       throw new Error(data.message || "Failed to fetch stats.");
     }
@@ -352,46 +147,29 @@ export const authService = {
     return data;
   },
 
-  /**
-   * Refresh user data from server
-   * @returns {Promise<Object>} - Fresh user data
-   */
   async refreshUser() {
-    const token = this.getToken();
-    
-    const response = await authFetch(`${API_URL}/me`, {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-      },
+    const response = await authFetch(`${AUTH_URL}/me`, {
+      headers: createAuthHeaders(false),
     });
 
-    const data = await response.json();
-
+    const data = await parseResponse(response);
     if (!response.ok) {
       throw new Error(data.message || "Failed to fetch user.");
     }
 
-    localStorage.setItem("user", JSON.stringify(data.user));
+    if (data?.user) {
+      localStorage.setItem("user", JSON.stringify(data.user));
+    }
+
     return data.user;
   },
 
-  // ==================== FRIENDS API ====================
-
-  /**
-   * Get friends list, pending requests
-   * @returns {Promise<Object>} - Friends data
-   */
   async getFriends() {
-    const token = this.getToken();
-    
-    const response = await authFetch(`${API_BASE}/api/friends/list`, {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-      },
+    const response = await authFetch(`${FRIENDS_URL}/list`, {
+      headers: createAuthHeaders(false),
     });
 
-    const data = await response.json();
-
+    const data = await parseResponse(response);
     if (!response.ok) {
       throw new Error(data.message || "Failed to fetch friends.");
     }
@@ -399,22 +177,12 @@ export const authService = {
     return data;
   },
 
-  /**
-   * Search for users by UID or username
-   * @param {string} query - Search query
-   * @returns {Promise<Object>} - Search results
-   */
   async searchUsers(query) {
-    const token = this.getToken();
-    
-    const response = await authFetch(`${API_BASE}/api/friends/search?query=${encodeURIComponent(query)}`, {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-      },
+    const response = await authFetch(`${FRIENDS_URL}/search?query=${encodeURIComponent(query)}`, {
+      headers: createAuthHeaders(false),
     });
 
-    const data = await response.json();
-
+    const data = await parseResponse(response);
     if (!response.ok) {
       throw new Error(data.message || "Search failed.");
     }
@@ -422,25 +190,14 @@ export const authService = {
     return data;
   },
 
-  /**
-   * Send friend request
-   * @param {string} targetUserId - Target user's ID
-   * @returns {Promise<Object>} - Success message
-   */
   async sendFriendRequest(targetUserId) {
-    const token = this.getToken();
-    
-    const response = await authFetch(`${API_BASE}/api/friends/request`, {
+    const response = await authFetch(`${FRIENDS_URL}/request`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
+      headers: createAuthHeaders(),
       body: JSON.stringify({ targetUserId }),
     });
 
-    const data = await response.json();
-
+    const data = await parseResponse(response);
     if (!response.ok) {
       throw new Error(data.message || "Failed to send friend request.");
     }
@@ -448,25 +205,14 @@ export const authService = {
     return data;
   },
 
-  /**
-   * Accept friend request
-   * @param {string} requesterId - Requester's user ID
-   * @returns {Promise<Object>} - Success message
-   */
   async acceptFriendRequest(requesterId) {
-    const token = this.getToken();
-    
-    const response = await authFetch(`${API_BASE}/api/friends/accept`, {
+    const response = await authFetch(`${FRIENDS_URL}/accept`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
+      headers: createAuthHeaders(),
       body: JSON.stringify({ requesterId }),
     });
 
-    const data = await response.json();
-
+    const data = await parseResponse(response);
     if (!response.ok) {
       throw new Error(data.message || "Failed to accept friend request.");
     }
@@ -474,25 +220,14 @@ export const authService = {
     return data;
   },
 
-  /**
-   * Reject friend request
-   * @param {string} requesterId - Requester's user ID
-   * @returns {Promise<Object>} - Success message
-   */
   async rejectFriendRequest(requesterId) {
-    const token = this.getToken();
-    
-    const response = await authFetch(`${API_BASE}/api/friends/reject`, {
+    const response = await authFetch(`${FRIENDS_URL}/reject`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
+      headers: createAuthHeaders(),
       body: JSON.stringify({ requesterId }),
     });
 
-    const data = await response.json();
-
+    const data = await parseResponse(response);
     if (!response.ok) {
       throw new Error(data.message || "Failed to reject friend request.");
     }
@@ -500,25 +235,14 @@ export const authService = {
     return data;
   },
 
-  /**
-   * Cancel sent friend request
-   * @param {string} targetUserId - Target user's ID
-   * @returns {Promise<Object>} - Success message
-   */
   async cancelFriendRequest(targetUserId) {
-    const token = this.getToken();
-    
-    const response = await authFetch(`${API_BASE}/api/friends/cancel`, {
+    const response = await authFetch(`${FRIENDS_URL}/cancel`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
+      headers: createAuthHeaders(),
       body: JSON.stringify({ targetUserId }),
     });
 
-    const data = await response.json();
-
+    const data = await parseResponse(response);
     if (!response.ok) {
       throw new Error(data.message || "Failed to cancel friend request.");
     }
@@ -526,25 +250,14 @@ export const authService = {
     return data;
   },
 
-  /**
-   * Remove friend
-   * @param {string} friendId - Friend's user ID
-   * @returns {Promise<Object>} - Success message
-   */
   async removeFriend(friendId) {
-    const token = this.getToken();
-    
-    const response = await authFetch(`${API_BASE}/api/friends/remove`, {
+    const response = await authFetch(`${FRIENDS_URL}/remove`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
+      headers: createAuthHeaders(),
       body: JSON.stringify({ friendId }),
     });
 
-    const data = await response.json();
-
+    const data = await parseResponse(response);
     if (!response.ok) {
       throw new Error(data.message || "Failed to remove friend.");
     }
@@ -552,28 +265,14 @@ export const authService = {
     return data;
   },
 
-  /**
-   * Send game invite notification to a friend
-   * @param {string} targetUserId - Target user's ID
-   * @param {string} gameId - Game ID
-   * @param {string} gameCode - Game code to join
-   * @param {string} gameName - Game name
-   * @returns {Promise<Object>} - Success message
-   */
   async sendGameInvite(targetUserId, gameId, gameCode, gameName) {
-    const token = this.getToken();
-    
-    const response = await authFetch(`${API_BASE}/api/friends/invite-to-game`, {
+    const response = await authFetch(`${FRIENDS_URL}/invite-to-game`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
+      headers: createAuthHeaders(),
       body: JSON.stringify({ targetUserId, gameId, gameCode, gameName }),
     });
 
-    const data = await response.json();
-
+    const data = await parseResponse(response);
     if (!response.ok) {
       throw new Error(data.message || "Failed to send game invite.");
     }
@@ -581,47 +280,27 @@ export const authService = {
     return data;
   },
 
-  /**
-   * Get pending game invites for current user
-   * @returns {Promise<Object>} - Array of pending invites
-   */
   async getGameInvites() {
-    const token = this.getToken();
-    
-    const response = await authFetch(`${API_BASE}/api/friends/game-invites`, {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-      },
+    const response = await authFetch(`${FRIENDS_URL}/game-invites`, {
+      headers: createAuthHeaders(false),
     });
 
-    const data = await response.json();
-
+    const data = await parseResponse(response);
     if (!response.ok) {
-      throw new Error(data.message || "Failed to get game invites.");
+      throw new Error(data.message || "Failed to fetch game invites.");
     }
 
     return data;
   },
 
-  /**
-   * Dismiss a game invite
-   * @param {string} inviteId - Invite ID
-   * @returns {Promise<Object>} - Success message
-   */
   async dismissGameInvite(inviteId) {
-    const token = this.getToken();
-    
-    const response = await authFetch(`${API_BASE}/api/friends/dismiss-invite`, {
+    const response = await authFetch(`${FRIENDS_URL}/dismiss-invite`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
+      headers: createAuthHeaders(),
       body: JSON.stringify({ inviteId }),
     });
 
-    const data = await response.json();
-
+    const data = await parseResponse(response);
     if (!response.ok) {
       throw new Error(data.message || "Failed to dismiss invite.");
     }

@@ -13,6 +13,7 @@ function handleSessionExpired() {
 
   localStorage.removeItem("authToken");
   localStorage.removeItem("user");
+  localStorage.removeItem("authSource");
 
   // Redirect to sign-in page with a session expired flag
   window.location.href = "/signin?sessionExpired=true";
@@ -30,7 +31,8 @@ export async function authFetch(url, options = {}) {
     const isAuthEndpoint =
       url.includes("/api/auth/signin") ||
       url.includes("/api/auth/signup") ||
-      url.includes("/api/auth/oauth/");
+      url.includes("/api/auth/oauth/") ||
+      url.includes("/api/auth/sync");
 
     if (!isAuthEndpoint) {
       handleSessionExpired();

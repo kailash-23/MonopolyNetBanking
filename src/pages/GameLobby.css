@@ -629,6 +629,18 @@
   border-color: #22c55e;
 }
 
+.btn-ready:disabled {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-ready:disabled:hover {
+  background: #f3f4f6;
+}
+
 .btn-start {
   width: 100%;
   padding: 16px;

@@ -10,9 +10,9 @@ import './Dashboard.css';
 // Monopoly editions
 const monopolyEditions = [
   { id: 'deluxe', name: 'Deluxe Edition', available: true },
+  { id: 'creative', name: 'Creative Mode', available: true },
   { id: 'classic', name: 'Classic Edition', available: false },
   { id: 'mega', name: 'Mega Edition', available: false },
-  { id: 'junior', name: 'Junior Edition', available: false },
 ];
 
 function Dashboard() {
@@ -43,6 +43,16 @@ function Dashboard() {
   const [savedGames, setSavedGames] = useState([]);
   const [isResumingGame, setIsResumingGame] = useState(null);
   const [gameInvites, setGameInvites] = useState([]);
+    const handleJoinCodeChange = (event) => {
+      const raw = event.target.value || '';
+      const normalized = raw
+        .normalize('NFKC')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '')
+        .slice(0, 6);
+      setGameCode(normalized);
+    };
+
   const lastBackPressRef = useRef(0);
   const exitConfirmTimeoutRef = useRef(null);
 
@@ -153,7 +163,7 @@ function Dashboard() {
 
   const handleLogout = () => {
     soundService.playClick();
-    authService.signOut();
+    authService.logout();
     navigate('/');
   };
 
@@ -817,9 +827,14 @@ function Dashboard() {
                   className="game-code-input"
                   placeholder="XXXXXX"
                   value={gameCode}
-                  onChange={(e) => setGameCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
+                  onChange={handleJoinCodeChange}
                   onKeyDown={(e) => { if (e.key === 'Enter' && gameCode.length === 6 && !isJoining) handleJoinGame(); }}
                   maxLength={6}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  inputMode="text"
                   autoFocus
                 />
                 <p className="input-hint">Ask the host for the 6-character code</p>

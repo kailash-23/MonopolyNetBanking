@@ -8,3 +8,4 @@ export { default as Settings } from './Settings';
 export { default as Terms } from './Terms';
 export { default as GameLobby } from './GameLobby';
 export { default as GameSession } from './GameSession';
+export { default as OAuthSuccess } from './OAuthSuccess';

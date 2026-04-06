@@ -346,6 +346,20 @@ export const sellProperty = async (gameId, propertyName, price) => {
   return data;
 };
 
+export const requestPropertyTrade = async (gameId, propertyName, targetPlayerId, amount) => {
+  const response = await authFetch(`${API_URL}/request-property-trade`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId, propertyName, targetPlayerId, amount }),
+  });
+
+  const data = await parseResponse(response);
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to request property trade");
+  }
+  return data;
+};
+
 export const manageHouse = async (gameId, propertyName, action, cost) => {
   const response = await authFetch(`${API_URL}/property/house`, {
     method: "POST",

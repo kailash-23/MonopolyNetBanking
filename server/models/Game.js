@@ -90,7 +90,7 @@ const pendingApprovalSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ["go_salary", "bank_receive"],
+    enum: ["go_salary", "bank_receive", "property_trade"],
     required: true,
   },
   amount: {
@@ -99,6 +99,16 @@ const pendingApprovalSchema = new mongoose.Schema({
   },
   description: {
     type: String,
+  },
+  propertyName: {
+    type: String,
+  },
+  colorGroup: {
+    type: String,
+  },
+  targetPlayer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
   },
   requestedAt: {
     type: Date,

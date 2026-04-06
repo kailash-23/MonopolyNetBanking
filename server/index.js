@@ -1,23 +1,26 @@
+import "./config/loadEnv.js";
 import express from "express";
-import dotenv from "dotenv";
 import cors from "cors";
-import path from "path";
-import { fileURLToPath } from "url";
 import rateLimit from "express-rate-limit";
+import session from "express-session";
+import passport from "passport";
 import { connectDB } from "./config/db.js";
 import authRoutes from "./routes/auth.js";
 import friendsRoutes from "./routes/friends.js";
 import gamesRoutes from "./routes/games.js";
-
-// Get directory name for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load .env from server directory
-dotenv.config({ path: path.join(__dirname, ".env") });
+import "./config/passport.js";
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
+const sessionSecret = process.env.SESSION_SECRET || process.env.JWT_SECRET;
+
+if (!sessionSecret) {
+  throw new Error("SESSION_SECRET or JWT_SECRET must be provided");
+}
+
+if (isProduction) {
+  app.set("trust proxy", 1);
+}
 
 // Middleware
 app.use(cors({
@@ -31,6 +34,18 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+app.use(session({
+  secret: sessionSecret,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+  },
+}));
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Rate limiting configuration
 const generalLimiter = rateLimit({
@@ -112,6 +127,12 @@ const validateEnv = () => {
     } else {
       console.warn('WARNING: Using insecure JWT_SECRET. Set a secure value before deploying to production.');
     }
+  }
+
+  const googleVars = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'];
+  const googleProvided = googleVars.map((v) => Boolean(process.env[v]));
+  if (googleProvided.some(Boolean) && googleProvided.some((flag) => !flag)) {
+    console.warn('WARNING: Google OAuth env vars are partially configured. Provide both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to enable Google sign-in.');
   }
 };
 

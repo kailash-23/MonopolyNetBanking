@@ -1,18 +1,53 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useGoogleLogin } from '@react-oauth/google';
-import { authService } from '../services/authService';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../services/firebaseService';
 import mrMonopolyImg from '../mrMonopoly.png';
 import './AuthPages.css';
+
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const apiUrl = (path) => `${API_BASE}${path}`;
+
+async function syncUserProfile(firebaseUser) {
+  const token = await firebaseUser.getIdToken();
+  const response = await fetch(apiUrl('/api/auth/sync'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      displayName: firebaseUser.displayName || null,
+    }),
+  });
+
+  let data = null;
+  try {
+    data = await response.json();
+  } catch (error) {
+    data = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(data?.message || 'Failed to sync user profile.');
+  }
+
+  localStorage.setItem('authToken', token);
+  localStorage.setItem('authSource', 'firebase');
+  if (data?.user) {
+    localStorage.setItem('user', JSON.stringify(data.user));
+  }
+
+  return data || {};
+}
 
 function SignIn() {
   const navigate = useNavigate();
   const location = useLocation();
-  const isGoogleConfigured = !!import.meta.env.VITE_GOOGLE_CLIENT_ID && import.meta.env.VITE_GOOGLE_CLIENT_ID !== 'YOUR_GOOGLE_CLIENT_ID';
   
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
-    username: '',
+    email: '',
     password: '',
   });
   
@@ -36,15 +71,21 @@ function SignIn() {
   // Auto sign-in if already authenticated
   useEffect(() => {
     const checkExistingSession = async () => {
-      const user = authService.getCurrentUser();
+      const storedUserRaw = localStorage.getItem('user');
       const token = localStorage.getItem('authToken');
-      
-      if (user && token) {
-        // User is already signed in, redirect to dashboard
-        if (user.isProfileComplete === false) {
-          navigate('/profile-setup', { replace: true });
-        } else {
+
+      if (storedUserRaw && token) {
+        try {
+          const storedUser = JSON.parse(storedUserRaw);
+          if (storedUser?.isProfileComplete === false) {
+            navigate('/profile-setup', { replace: true });
+            return;
+          }
           navigate('/dashboard', { replace: true });
+        } catch (error) {
+          console.error('Stored user parse error:', error);
+          localStorage.removeItem('user');
+          setCheckingAuth(false);
         }
       } else {
         setCheckingAuth(false);
@@ -54,68 +95,34 @@ function SignIn() {
     checkExistingSession();
   }, [navigate]);
 
-  // Google OAuth login
-  const googleLogin = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      setSocialLoading('google');
-      try {
-        // Get user info from Google
-        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
-        });
-
-        if (!userInfoResponse.ok) {
-          throw new Error('Unable to retrieve Google profile. Check OAuth app configuration and authorized origins.');
-        }
-
-        const userInfo = await userInfoResponse.json();
-
-        if (!userInfo.sub || !userInfo.email) {
-          throw new Error('Google did not return required profile information.');
-        }
-        
-        // Send user info directly to backend
-        const result = await authService.signInWithGoogle({
-          googleId: userInfo.sub,
-          email: userInfo.email,
-          name: userInfo.name,
-          picture: userInfo.picture,
-        });
-        
-        // Check for pending join code
-        const pendingJoinCode = sessionStorage.getItem('pendingJoinCode');
-        if (pendingJoinCode) {
-          sessionStorage.removeItem('pendingJoinCode');
-          navigate(`/join/${pendingJoinCode}`);
-          return;
-        }
-        
-        // Redirect new users to profile setup, existing users to dashboard
-        if (result.isNewUser) {
-          navigate('/profile-setup');
-        } else {
-          navigate('/dashboard');
-        }
-      } catch (error) {
-        console.error('Google auth error:', error);
-        setGeneralError(error.message || 'Google authentication failed.');
-      } finally {
-        setSocialLoading(null);
-      }
-    },
-    onError: (error) => {
-      console.error('Google OAuth error:', error);
-      setGeneralError('Google authentication failed. Please try again.');
-      setSocialLoading(null);
-    },
-  });
-
-  const handleGoogleLogin = () => {
-    if (!isGoogleConfigured) {
-      setGeneralError('Google sign-in is not configured. Set VITE_GOOGLE_CLIENT_ID and restart the frontend.');
+  const redirectAfterSync = (syncData) => {
+    if (syncData?.needsProfileSetup) {
+      navigate('/profile-setup');
       return;
     }
-    googleLogin();
+
+    const pendingJoinCode = sessionStorage.getItem('pendingJoinCode');
+    if (pendingJoinCode) {
+      sessionStorage.removeItem('pendingJoinCode');
+      navigate(`/join/${pendingJoinCode}`);
+      return;
+    }
+
+    navigate('/dashboard');
+  };
+
+  const handleGoogleLogin = async () => {
+    setSocialLoading('google');
+    setGeneralError('');
+
+    try {
+      const googleAuthUrl = apiUrl('/api/auth/google');
+      window.location.href = googleAuthUrl;
+    } catch (error) {
+      console.error('Google authentication redirect error:', error);
+      setGeneralError('Unable to start Google sign-in. Please try again.');
+      setSocialLoading(null);
+    }
   };
 
   // Handle browser back gesture/button
@@ -134,8 +141,8 @@ function SignIn() {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.username.trim()) {
-      newErrors.username = 'Username is required';
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
     }
     if (!formData.password) {
       newErrors.password = 'Password is required';
@@ -159,22 +166,17 @@ function SignIn() {
     setGeneralError('');
 
     try {
-      await authService.signIn({
-        username: formData.username,
-        password: formData.password,
-      });
-      
-      // Check for pending join code
-      const pendingJoinCode = sessionStorage.getItem('pendingJoinCode');
-      if (pendingJoinCode) {
-        sessionStorage.removeItem('pendingJoinCode');
-        navigate(`/join/${pendingJoinCode}`);
-        return;
-      }
-      
-      navigate('/dashboard');
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        formData.email.trim(),
+        formData.password
+      );
+
+      const syncData = await syncUserProfile(userCredential.user);
+      redirectAfterSync(syncData);
     } catch (error) {
-      setGeneralError(error.message || 'Invalid username or password.');
+      console.error('Email/password sign-in error:', error);
+      setGeneralError(error.message || 'Unable to sign in. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -268,17 +270,17 @@ function SignIn() {
 
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="field">
-              <label htmlFor="username" className="field__label">Username</label>
+              <label htmlFor="email" className="field__label">Email</label>
               <input
-                id="username"
-                type="text"
-                className={'field__input ' + (errors.username ? 'field__input--error' : '')}
-                value={formData.username}
-                onChange={handleChange('username')}
-                placeholder="Enter your username"
-                autoComplete="username"
+                id="email"
+                type="email"
+                className={'field__input ' + (errors.email ? 'field__input--error' : '')}
+                value={formData.email}
+                onChange={handleChange('email')}
+                placeholder="Enter your email"
+                autoComplete="email"
               />
-              {errors.username && <span className="field__error">{errors.username}</span>}
+              {errors.email && <span className="field__error">{errors.email}</span>}
             </div>
 
             <div className="field">
@@ -309,7 +311,7 @@ function SignIn() {
               type="button" 
               className="social-btn social-btn--full" 
               onClick={handleGoogleLogin}
-              disabled={socialLoading === 'google' || !isGoogleConfigured}
+              disabled={socialLoading === 'google'}
             >
               <svg viewBox="0 0 24 24" width="20" height="20">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -317,7 +319,7 @@ function SignIn() {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              {!isGoogleConfigured ? 'Google Sign-In Not Configured' : socialLoading === 'google' ? 'Signing in...' : 'Continue with Google'}
+              {socialLoading === 'google' ? 'Redirecting...' : 'Continue with Google'}
             </button>
           </div>
 

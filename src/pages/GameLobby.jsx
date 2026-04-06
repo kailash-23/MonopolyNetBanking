@@ -111,7 +111,9 @@ function GameLobby() {
     (p.user?._id || p.user) === user._id
   );
   const allReady = game?.players?.every(p => p.isReady);
-  const canStart = isHost && allReady && game?.players?.length >= 2;
+  const allPlayersSelectedToken = game?.players?.every(p => p.token);
+  const hasPlayerSelectedToken = !!currentPlayer?.token;
+  const canStart = isHost && allReady && allPlayersSelectedToken && game?.players?.length >= 2;
 
   const copyCode = () => {
     navigator.clipboard.writeText(game.code);
@@ -121,6 +123,10 @@ function GameLobby() {
   };
 
   const handleToggleReady = async () => {
+    if (!hasPlayerSelectedToken) {
+      setError('Please select a token before marking yourself as ready');
+      return;
+    }
     try {
       soundService.playClick();
       const data = await gameService.toggleReady(game._id || game.id);
@@ -497,8 +503,10 @@ function GameLobby() {
             <button 
               className={`btn-ready ${currentPlayer?.isReady ? 'ready' : ''}`}
               onClick={handleToggleReady}
+              disabled={!hasPlayerSelectedToken}
+              title={!hasPlayerSelectedToken ? 'Select a token first' : ''}
             >
-              {currentPlayer?.isReady ? 'Not Ready' : "I'm Ready!"}
+              {!hasPlayerSelectedToken ? 'Select a Token First' : (currentPlayer?.isReady ? 'Not Ready' : "I'm Ready!")}
             </button>
           )}
           
@@ -508,15 +516,18 @@ function GameLobby() {
                 className="btn-start"
                 onClick={handleStartGame}
                 disabled={!canStart || isStarting}
+                title={!allPlayersSelectedToken ? 'All players must select a token' : !allReady ? 'Waiting for players to ready up' : game?.players?.length < 2 ? 'Need 2+ players' : ''}
               >
-                {isStarting ? 'Starting...' : !allReady ? 'Waiting for players...' : game?.players?.length < 2 ? 'Need 2+ players' : 'Start Game'}
+                {isStarting ? 'Starting...' : !allPlayersSelectedToken ? 'Waiting for token selection...' : !allReady ? 'Waiting for players...' : game?.players?.length < 2 ? 'Need 2+ players' : 'Start Game'}
               </button>
               {isHost && !currentPlayer?.isReady && (
                 <button 
                   className={`btn-ready ${currentPlayer?.isReady ? 'ready' : ''}`}
                   onClick={handleToggleReady}
+                  disabled={!hasPlayerSelectedToken}
+                  title={!hasPlayerSelectedToken ? 'Select a token first' : ''}
                 >
-                  {currentPlayer?.isReady ? 'Not Ready' : "I'm Ready!"}
+                  {!hasPlayerSelectedToken ? 'Select a Token First' : (currentPlayer?.isReady ? 'Not Ready' : "I'm Ready!")}
                 </button>
               )}
             </>
