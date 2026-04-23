@@ -1,5 +1,3 @@
-import { signOut } from "firebase/auth";
-import { auth } from "./firebaseService";
 import { authFetch } from "../utils/apiClient";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
@@ -42,11 +40,6 @@ export const authService = {
   isAuthenticated: () => Boolean(localStorage.getItem("authToken") && localStorage.getItem("user")),
 
   logout: async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      // Ignore errors when auth instance is already signed out
-    }
     localStorage.removeItem("user");
     localStorage.removeItem("authToken");
     localStorage.removeItem("authSource");

@@ -4,7 +4,7 @@ import User from "../models/User.js";
 import { generateUsername, normalizeEmail } from "../utils/userProfile.js";
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
-const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_SECRET_ID;
 const defaultCallback = "http://localhost:4000/api/auth/google/callback";
 const googleCallbackURL = process.env.GOOGLE_CALLBACK_URL || defaultCallback;
 
@@ -94,7 +94,7 @@ if (googleClientId && googleClientSecret) {
     )
   );
 } else {
-  console.warn("GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET not provided - Google OAuth disabled.");
+  console.warn("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET (or GOOGLE_SECRET_ID) not provided - Google OAuth disabled.");
 }
 
 passport.serializeUser((user, done) => {

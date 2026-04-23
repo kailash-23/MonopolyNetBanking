@@ -1,15 +1,19 @@
 import express from "express";
+import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import passport from "passport";
 import User from "../models/User.js";
 import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.js";
-import { deriveAuthProvider, generateUsername, normalizeEmail } from "../utils/userProfile.js";
+import { generateUsername, normalizeEmail } from "../utils/userProfile.js";
 import { generateResetToken, hashToken, sendPasswordResetEmail } from "../config/email.js";
 
 const router = express.Router();
 const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
-const GOOGLE_AUTH_ENABLED = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+const GOOGLE_AUTH_ENABLED = Boolean(
+  process.env.GOOGLE_CLIENT_ID && (process.env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_SECRET_ID)
+);
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
+const MIN_PASSWORD_LENGTH = 8;
 
 const normalizeUsernameValue = (value) =>
   typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -26,11 +30,6 @@ const validateUsername = (value) => {
     };
   }
   return { valid: true, value: normalized };
-};
-
-const allowMissingUser = (req, _res, next) => {
-  req.allowMissingUser = true;
-  next();
 };
 
 const issueAppToken = (user) => {
@@ -66,6 +65,92 @@ const buildSyncPayload = (user) => {
   }
   return payload;
 };
+
+const validatePassword = (password) => {
+  if (typeof password !== "string" || password.length < MIN_PASSWORD_LENGTH) {
+    return {
+      valid: false,
+      message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters long`,
+    };
+  }
+  return { valid: true };
+};
+
+router.post("/signup", async (req, res) => {
+  try {
+    const { email, password, displayName } = req.body || {};
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!normalizedEmail) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ message: passwordValidation.message });
+    }
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      return res.status(409).json({ message: "An account with this email already exists" });
+    }
+
+    const username = await generateUsername([
+      req.body?.username,
+      displayName,
+      normalizedEmail.split("@")[0],
+    ]);
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const user = await User.create({
+      email: normalizedEmail,
+      password: passwordHash,
+      displayName: typeof displayName === "string" && displayName.trim() ? displayName.trim() : "Player",
+      username,
+      authProvider: "local",
+      isProfileComplete: false,
+    });
+
+    const token = issueAppToken(user);
+    return res.status(201).json({
+      token,
+      ...buildSyncPayload(user),
+    });
+  } catch (error) {
+    console.error("Sign up error:", error);
+    return res.status(500).json({ message: "Failed to create account" });
+  }
+});
+
+router.post("/signin", async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!normalizedEmail || typeof password !== "string") {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail }).select("+password");
+    if (!user || !user.password) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    const token = issueAppToken(user);
+    return res.json({
+      token,
+      ...buildSyncPayload(user),
+    });
+  } catch (error) {
+    console.error("Sign in error:", error);
+    return res.status(500).json({ message: "Failed to sign in" });
+  }
+});
 
 router.get("/google", (req, res, next) => {
   if (!GOOGLE_AUTH_ENABLED) {
@@ -107,56 +192,10 @@ router.get(
   }
 );
 
-router.post("/sync", allowMissingUser, verifyFirebaseToken, async (req, res) => {
-  const firebaseUid = req.firebaseUid || req.user?.firebaseUid || req.firebaseUser?.uid || req.userId;
-  const normalizedEmail = normalizeEmail(req.userEmail || req.firebaseUser?.email);
-  req.userEmail = normalizedEmail;
-
-  try {
-    if (!firebaseUid) {
-      return res.status(400).json({ message: "Missing Firebase UID" });
-    }
-
-    let user = req.user;
-
-    if (!user) {
-      user = await User.findOne({ firebaseUid });
-    }
-
-    if (!user) {
-      const username = await generateUsername([
-        req.body?.username,
-        req.body?.displayName,
-        req.firebaseUser?.displayName,
-        req.firebaseUser?.name,
-        req.firebaseUser?.email?.split("@")[0],
-        req.userEmail?.split("@")[0],
-        firebaseUid,
-      ]);
-
-      user = await User.create({
-        firebaseUid,
-        email: normalizedEmail,
-        displayName:
-          req.body?.displayName ||
-          req.firebaseUser?.displayName ||
-          req.firebaseUser?.name ||
-          req.userEmail?.split("@")[0] ||
-          "Player",
-        username,
-        authProvider: deriveAuthProvider(req.firebaseUser),
-        isProfileComplete: false,
-      });
-    }
-
-    req.user = user;
-    req.userId = user._id.toString();
-
-    res.json(buildSyncPayload(user));
-  } catch (error) {
-    console.error("Auth sync error:", error);
-    res.status(500).json({ message: "Failed to sync user profile" });
-  }
+router.post("/sync", (_req, res) => {
+  return res.status(410).json({
+    message: "Firebase sync has been removed. Use /api/auth/signup or /api/auth/signin.",
+  });
 });
 
 router.get("/me", verifyFirebaseToken, (req, res) => {
@@ -373,6 +412,40 @@ router.post("/password-reset", async (req, res) => {
   } catch (error) {
     console.error("Password reset error:", error);
     res.status(500).json({ message: "Failed to process password reset request" });
+  }
+});
+
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { token, password } = req.body || {};
+    if (!token) {
+      return res.status(400).json({ message: "Reset token is required" });
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ message: passwordValidation.message });
+    }
+
+    const hashedToken = hashToken(token);
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() },
+    }).select("+password");
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired reset token" });
+    }
+
+    user.password = await bcrypt.hash(password, 12);
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save();
+
+    return res.json({ success: true, message: "Password reset successfully" });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    return res.status(500).json({ message: "Failed to reset password" });
   }
 });
 

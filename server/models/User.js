@@ -15,9 +15,14 @@ const userSchema = new mongoose.Schema(
     },
     firebaseUid: {
       type: String,
-      required: true,
       unique: true,
+      sparse: true,
       index: true,
+    },
+    password: {
+      type: String,
+      minlength: [8, "Password must be at least 8 characters"],
+      select: false,
     },
     username: {
       type: String,

@@ -1,23 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../services/firebaseService';
 import mrMonopolyImg from '../mrMonopoly.png';
 import './AuthPages.css';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 const apiUrl = (path) => `${API_BASE}${path}`;
 
-async function syncUserProfile(firebaseUser) {
-  const token = await firebaseUser.getIdToken();
-  const response = await fetch(apiUrl('/api/auth/sync'), {
+async function signInWithBackend({ email, password }) {
+  const response = await fetch(apiUrl('/api/auth/signin'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
-      displayName: firebaseUser.displayName || null,
+      email,
+      password,
     }),
   });
 
@@ -29,11 +26,13 @@ async function syncUserProfile(firebaseUser) {
   }
 
   if (!response.ok) {
-    throw new Error(data?.message || 'Failed to sync user profile.');
+    throw new Error(data?.message || 'Unable to sign in.');
   }
 
-  localStorage.setItem('authToken', token);
-  localStorage.setItem('authSource', 'firebase');
+  if (data?.token) {
+    localStorage.setItem('authToken', data.token);
+  }
+  localStorage.setItem('authSource', 'custom');
   if (data?.user) {
     localStorage.setItem('user', JSON.stringify(data.user));
   }
@@ -166,14 +165,11 @@ function SignIn() {
     setGeneralError('');
 
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        formData.email.trim(),
-        formData.password
-      );
-
-      const syncData = await syncUserProfile(userCredential.user);
-      redirectAfterSync(syncData);
+      const data = await signInWithBackend({
+        email: formData.email.trim(),
+        password: formData.password,
+      });
+      redirectAfterSync(data);
     } catch (error) {
       console.error('Email/password sign-in error:', error);
       setGeneralError(error.message || 'Unable to sign in. Please try again.');

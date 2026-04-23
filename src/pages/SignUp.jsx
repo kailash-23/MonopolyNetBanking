@@ -1,26 +1,21 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  createUserWithEmailAndPassword,
-  updateProfile,
-} from 'firebase/auth';
-import { auth } from '../services/firebaseService';
 import mrMonopolyImg from '../mrMonopoly.png';
 import './AuthPages.css';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 const apiUrl = (path) => `${API_BASE}${path}`;
 
-async function syncUserProfile(firebaseUser) {
-  const token = await firebaseUser.getIdToken();
-  const response = await fetch(apiUrl('/api/auth/sync'), {
+async function signUpWithBackend({ email, password, displayName }) {
+  const response = await fetch(apiUrl('/api/auth/signup'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
-      displayName: firebaseUser.displayName || null,
+      email,
+      password,
+      displayName,
     }),
   });
 
@@ -32,11 +27,13 @@ async function syncUserProfile(firebaseUser) {
   }
 
   if (!response.ok) {
-    throw new Error(data?.message || 'Failed to sync user profile.');
+    throw new Error(data?.message || 'Unable to create account.');
   }
 
-  localStorage.setItem('authToken', token);
-  localStorage.setItem('authSource', 'firebase');
+  if (data?.token) {
+    localStorage.setItem('authToken', data.token);
+  }
+  localStorage.setItem('authSource', 'custom');
   if (data?.user) {
     localStorage.setItem('user', JSON.stringify(data.user));
   }
@@ -121,18 +118,12 @@ function SignUp() {
     setGeneralError('');
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        formData.email.trim(),
-        formData.password
-      );
-
-      await updateProfile(userCredential.user, {
+      const data = await signUpWithBackend({
+        email: formData.email.trim(),
+        password: formData.password,
         displayName: formData.name.trim() || 'Player',
       });
-
-      const syncData = await syncUserProfile(userCredential.user);
-      redirectAfterSync(syncData);
+      redirectAfterSync(data);
     } catch (error) {
       setGeneralError(error.message || 'Something went wrong. Please try again.');
     } finally {

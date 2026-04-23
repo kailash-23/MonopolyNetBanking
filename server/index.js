@@ -129,10 +129,10 @@ const validateEnv = () => {
     }
   }
 
-  const googleVars = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'];
-  const googleProvided = googleVars.map((v) => Boolean(process.env[v]));
-  if (googleProvided.some(Boolean) && googleProvided.some((flag) => !flag)) {
-    console.warn('WARNING: Google OAuth env vars are partially configured. Provide both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to enable Google sign-in.');
+  const hasGoogleClientId = Boolean(process.env.GOOGLE_CLIENT_ID);
+  const hasGoogleSecret = Boolean(process.env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_SECRET_ID);
+  if ((hasGoogleClientId || hasGoogleSecret) && !(hasGoogleClientId && hasGoogleSecret)) {
+    console.warn('WARNING: Google OAuth env vars are partially configured. Provide GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET (or GOOGLE_SECRET_ID) to enable Google sign-in.');
   }
 };
 

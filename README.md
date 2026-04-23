@@ -11,8 +11,9 @@ This is an unofficial, fan-made, open-source project created for educational and
 ## Features
 
 Currently implemented:
-- ✅ Hybrid authentication: Firebase email/password + Google OAuth 2.0
-- ✅ Secure Express + MongoDB backend with JWT + Firebase token verification
+- ✅ MongoDB email/password authentication + JWT sessions
+- ✅ Optional Google OAuth 2.0 via backend Passport strategy
+- ✅ Secure Express + MongoDB backend with JWT verification
 - ✅ Mobile-friendly, accessible UI
 - ✅ Clean component architecture
 
@@ -49,17 +50,14 @@ cd ..
 
 4. Configure frontend environment variables:
 
-Create a `.env.local` file in the project root (Vite automatically loads it) and add your Firebase web credentials:
+Create a `.env.local` file in the project root (Vite automatically loads it):
 
 ```
-VITE_FIREBASE_API_KEY=your-web-api-key
-VITE_FIREBASE_AUTH_DOMAIN=your-app.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your-project-id
-VITE_FIREBASE_STORAGE_BUCKET=your-project-id.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
-VITE_FIREBASE_APP_ID=your-app-id
-# Optional when your API lives on another domain (defaults to same origin)
+# Preferred key
 VITE_API_URL=https://your-backend.example.com
+
+# Optional alias supported by vite.config.js (useful for host dashboards)
+BACKEND_URL=https://your-backend.example.com
 ```
 
 5. Configure backend environment variables:
@@ -76,18 +74,11 @@ SESSION_SECRET=another-long-random-string   # optional, falls back to JWT_SECRET
 # Google OAuth
 GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-google-client-secret
+# Alias also supported: GOOGLE_SECRET_ID
 GOOGLE_CALLBACK_URL=https://your-backend.example.com/api/auth/google/callback
 ```
 
 > **Tip:** Register the OAuth client in [Google Cloud Console](https://console.cloud.google.com/). Add both your local callback (`http://localhost:4000/api/auth/google/callback`) and production callback under **Authorized redirect URIs**.
-
-6. Provide Firebase Admin credentials for the backend (required for email/password flows):
-
-- Option A: Set one environment variable before starting the server
-  ```
-  FIREBASE_SERVICE_ACCOUNT='{"type":"service_account",...}'
-  ```
-- Option B (recommended for local dev): copy your downloaded service account JSON to `server/config/firebase-service-account.json`. The file is gitignored and automatically loaded. You can also point to a custom path with `FIREBASE_SERVICE_ACCOUNT_FILE=/absolute/path/to/credentials.json`.
 
 7. Start the backend API:
 ```bash
@@ -104,23 +95,13 @@ npm run dev
 
 ### Google sign-in flow
 
-Clicking "Continue with Google" now redirects the browser to `GET /api/auth/google` on the Express backend. After a successful OAuth handshake, the backend issues a signed JWT and redirects the user to `/oauth-success` on the frontend. That page stores the token, fetches the user profile via `GET /api/auth/me`, and then sends the player to their dashboard (or profile setup). Email/password users continue to authenticate with Firebase, so both tokens remain supported across the API.
+Clicking "Continue with Google" redirects to `GET /api/auth/google` on the Express backend. After successful OAuth, the backend issues a JWT and redirects to `/oauth-success` on the frontend.
 
-### Migrating existing MongoDB users to Firebase Auth
-
-If you have legacy users that only exist in MongoDB, run the migration script to create matching Firebase Auth accounts and fill in each document's `firebaseUid`.
-
-1. Ensure `MONGO_URI` and your Firebase Admin credentials are configured.
-2. Dry-run to see what would happen:
-   ```bash
-   npm run migrate:users -- --dry-run
-   ```
-3. Execute the real migration:
-   ```bash
-   npm run migrate:users
-   ```
-
-The script links to existing Firebase accounts when possible and only creates new ones for users with an email address. Any failures are summarized at the end so you can re-run the tool after fixing data issues. Newly created accounts receive a random temporary password, so migrated players should use the "Forgot password" option to set their own credentials.
+Email/password users authenticate directly through:
+- `POST /api/auth/signup`
+- `POST /api/auth/signin`
+- `POST /api/auth/password-reset`
+- `POST /api/auth/reset-password`
 
 ## Project Structure
 
