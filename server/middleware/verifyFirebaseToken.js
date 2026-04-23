@@ -20,7 +20,6 @@ const verifyInternalToken = async (token) => {
     return {
       decoded,
       user,
-      firebaseUid: decoded.firebaseUid || user.firebaseUid || null,
       userEmail: user.email || decoded.email || null,
     };
   } catch (error) {
@@ -31,7 +30,7 @@ const verifyInternalToken = async (token) => {
   }
 };
 
-export const verifyFirebaseToken = async (req, res, next) => {
+export const verifyAuthToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -45,15 +44,17 @@ export const verifyFirebaseToken = async (req, res, next) => {
       return res.status(401).json({ message: "Invalid or expired token" });
     }
 
-    req.firebaseUser = internalSession.decoded;
-    req.firebaseUid = internalSession.firebaseUid;
+    req.authUser = internalSession.decoded;
     req.userEmail = internalSession.userEmail;
     req.user = internalSession.user;
     req.userId = internalSession.user._id.toString();
 
     next();
   } catch (error) {
-    console.error("verifyFirebaseToken error:", error.message);
+    console.error("verifyAuthToken error:", error.message);
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
+
+// Backward compatibility export for existing route imports.
+export const verifyFirebaseToken = verifyAuthToken;

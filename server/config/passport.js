@@ -39,7 +39,6 @@ if (googleClientId && googleClientSecret) {
             ]);
 
             user = await User.create({
-              firebaseUid: `google:${googleId}`,
               email: normalizedEmail,
               displayName: profile?.displayName || profile?.name?.givenName || "Player",
               avatar: profile?.photos?.[0]?.value,
@@ -53,11 +52,6 @@ if (googleClientId && googleClientSecret) {
 
             if (!user.googleId) {
               user.googleId = googleId;
-              needsSave = true;
-            }
-
-            if (!user.firebaseUid) {
-              user.firebaseUid = `google:${googleId}`;
               needsSave = true;
             }
 

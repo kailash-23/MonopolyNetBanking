@@ -39,7 +39,6 @@ const issueAppToken = (user) => {
 
   const payload = {
     userId: user._id.toString(),
-    firebaseUid: user.firebaseUid,
     authProvider: user.authProvider || "local",
   };
 
@@ -194,7 +193,7 @@ router.get(
 
 router.post("/sync", (_req, res) => {
   return res.status(410).json({
-    message: "Firebase sync has been removed. Use /api/auth/signup or /api/auth/signin.",
+    message: "Legacy sync has been removed. Use /api/auth/signup or /api/auth/signin.",
   });
 });
 
