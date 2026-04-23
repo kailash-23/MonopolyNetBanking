@@ -2,7 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import Game from "../models/Game.js";
 import User from "../models/User.js";
-import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.js";
+import { verifyAuthToken } from "../middleware/verifyAuthToken.js";
 
 const router = express.Router();
 
@@ -57,7 +57,7 @@ const isTransientTransactionError = (error) => {
 // @route   POST /api/games/create
 // @desc    Create a new game session
 // @access  Private
-router.post("/create", verifyFirebaseToken, async (req, res) => {
+router.post("/create", verifyAuthToken, async (req, res) => {
   try {
     const { name, maxPlayers, startingBalance, goSalary, settings } = req.body;
 
@@ -123,7 +123,7 @@ router.post("/create", verifyFirebaseToken, async (req, res) => {
 // @route   POST /api/games/join
 // @desc    Join a game using 6-digit code
 // @access  Private
-router.post("/join", verifyFirebaseToken, async (req, res) => {
+router.post("/join", verifyAuthToken, async (req, res) => {
   try {
     const { code } = req.body;
 
@@ -220,7 +220,7 @@ router.post("/join", verifyFirebaseToken, async (req, res) => {
 // @route   POST /api/games/leave
 // @desc    Leave a game
 // @access  Private
-router.post("/leave", verifyFirebaseToken, async (req, res) => {
+router.post("/leave", verifyAuthToken, async (req, res) => {
   try {
     const { gameId } = req.body;
 
@@ -293,7 +293,7 @@ router.post("/leave", verifyFirebaseToken, async (req, res) => {
 // @route   GET /api/games/saved
 // @desc    Get user's saved games (games that can be resumed - idle_timeout or host_left)
 // @access  Private
-router.get("/saved", verifyFirebaseToken, async (req, res) => {
+router.get("/saved", verifyAuthToken, async (req, res) => {
   try {
     const savedGames = await Game.find({
       host: req.user._id,
@@ -328,7 +328,7 @@ router.get("/saved", verifyFirebaseToken, async (req, res) => {
 // @route   GET /api/games/:code
 // @desc    Get game by code
 // @access  Private
-router.get("/:code([A-Za-z0-9]{6})", verifyFirebaseToken, async (req, res) => {
+router.get("/:code([A-Za-z0-9]{6})", verifyAuthToken, async (req, res) => {
   try {
     const game = await Game.findOne({ code: req.params.code.toUpperCase() })
       .populate("players.user", "username displayName avatar uid")
@@ -370,7 +370,7 @@ router.get("/:code([A-Za-z0-9]{6})", verifyFirebaseToken, async (req, res) => {
 // @route   GET /api/games/my/active
 // @desc    Get user's active game
 // @access  Private
-router.get("/my/active", verifyFirebaseToken, async (req, res) => {
+router.get("/my/active", verifyAuthToken, async (req, res) => {
   try {
     const game = await Game.findOne({
       "players.user": req.user._id,
@@ -408,7 +408,7 @@ router.get("/my/active", verifyFirebaseToken, async (req, res) => {
 // @route   POST /api/games/ready
 // @desc    Toggle ready status
 // @access  Private
-router.post("/ready", verifyFirebaseToken, async (req, res) => {
+router.post("/ready", verifyAuthToken, async (req, res) => {
   try {
     const { gameId } = req.body;
 
@@ -443,7 +443,7 @@ router.post("/ready", verifyFirebaseToken, async (req, res) => {
 // @route   POST /api/games/select-token
 // @desc    Select a Monopoly token/piece
 // @access  Private
-router.post("/select-token", verifyFirebaseToken, async (req, res) => {
+router.post("/select-token", verifyAuthToken, async (req, res) => {
   try {
     const { gameId, token } = req.body;
 
@@ -491,7 +491,7 @@ router.post("/select-token", verifyFirebaseToken, async (req, res) => {
 // @route   PUT /api/games/settings
 // @desc    Update game settings (host only, only in waiting state)
 // @access  Private
-router.put("/settings", verifyFirebaseToken, async (req, res) => {
+router.put("/settings", verifyAuthToken, async (req, res) => {
   try {
     const { gameId, startingBalance, goSalary, maxPlayers } = req.body;
 
@@ -563,7 +563,7 @@ router.put("/settings", verifyFirebaseToken, async (req, res) => {
 // @route   POST /api/games/start
 // @desc    Start the game (host only)
 // @access  Private
-router.post("/start", verifyFirebaseToken, async (req, res) => {
+router.post("/start", verifyAuthToken, async (req, res) => {
   try {
     const { gameId } = req.body;
 
@@ -619,7 +619,7 @@ router.post("/start", verifyFirebaseToken, async (req, res) => {
 // @route   POST /api/games/transfer
 // @desc    Transfer money between players or from/to bank
 // @access  Private
-router.post("/transfer", verifyFirebaseToken, async (req, res) => {
+router.post("/transfer", verifyAuthToken, async (req, res) => {
   const { gameId, toPlayerId, amount, type, description } = req.body;
   if (!amount || amount <= 0) {
     return res.status(400).json({ message: "Invalid amount" });
@@ -720,7 +720,7 @@ router.post("/transfer", verifyFirebaseToken, async (req, res) => {
 // @route   POST /api/games/request-go
 // @desc    Request GO salary (requires approval from host or another player if requester is host)
 // @access  Private
-router.post("/request-go", verifyFirebaseToken, async (req, res) => {
+router.post("/request-go", verifyAuthToken, async (req, res) => {
   try {
     const { gameId } = req.body;
 
@@ -805,7 +805,7 @@ router.post("/request-go", verifyFirebaseToken, async (req, res) => {
 // @route   POST /api/games/request-bank-receive
 // @desc    Request bank receive (requires approval from host or another player if requester is host)
 // @access  Private
-router.post("/request-bank-receive", verifyFirebaseToken, async (req, res) => {
+router.post("/request-bank-receive", verifyAuthToken, async (req, res) => {
   try {
     const { gameId, amount, description } = req.body;
 
@@ -885,7 +885,7 @@ router.post("/request-bank-receive", verifyFirebaseToken, async (req, res) => {
 // @route   POST /api/games/request-property-trade
 // @desc    Request selling a property to another player (requires buyer approval)
 // @access  Private
-router.post("/request-property-trade", verifyFirebaseToken, async (req, res) => {
+router.post("/request-property-trade", verifyAuthToken, async (req, res) => {
   try {
     const { gameId, propertyName, targetPlayerId, amount } = req.body;
 
@@ -963,7 +963,7 @@ router.post("/request-property-trade", verifyFirebaseToken, async (req, res) => 
 // @route   POST /api/games/approve-request
 // @desc    Approve or deny a pending approval request
 // @access  Private
-router.post("/approve-request", verifyFirebaseToken, async (req, res) => {
+router.post("/approve-request", verifyAuthToken, async (req, res) => {
   try {
     const { gameId, requestId, approved } = req.body;
 
@@ -1084,7 +1084,7 @@ router.post("/approve-request", verifyFirebaseToken, async (req, res) => {
 // @route   POST /api/games/save
 // @desc    Save the game for later (host only) — pauses game, preserves all balances
 // @access  Private
-router.post("/save", verifyFirebaseToken, async (req, res) => {
+router.post("/save", verifyAuthToken, async (req, res) => {
   try {
     const { gameId } = req.body;
 
@@ -1129,7 +1129,7 @@ router.post("/save", verifyFirebaseToken, async (req, res) => {
 // @route   POST /api/games/end
 // @desc    End the game (host only)
 // @access  Private
-router.post("/end", verifyFirebaseToken, async (req, res) => {
+router.post("/end", verifyAuthToken, async (req, res) => {
   try {
     const { gameId, reason } = req.body;
 
@@ -1252,7 +1252,7 @@ router.post("/end", verifyFirebaseToken, async (req, res) => {
 // @route   POST /api/games/activity
 // @desc    Update game activity timestamp
 // @access  Private
-router.post("/activity", verifyFirebaseToken, async (req, res) => {
+router.post("/activity", verifyAuthToken, async (req, res) => {
   try {
     const { gameId } = req.body;
 
@@ -1285,7 +1285,7 @@ router.post("/activity", verifyFirebaseToken, async (req, res) => {
 // @route   GET /api/games/check-idle/:gameId
 // @desc    Check if game is idle and handle timeout (30 minutes)
 // @access  Private
-router.get("/check-idle/:gameId", verifyFirebaseToken, async (req, res) => {
+router.get("/check-idle/:gameId", verifyAuthToken, async (req, res) => {
   try {
     const game = await Game.findById(req.params.gameId)
       .populate("players.user", "username displayName avatar uid")
@@ -1383,7 +1383,7 @@ router.get("/check-idle/:gameId", verifyFirebaseToken, async (req, res) => {
 // @route   POST /api/games/resume
 // @desc    Resume a saved game (creates a new game with same balances)
 // @access  Private
-router.post("/resume", verifyFirebaseToken, async (req, res) => {
+router.post("/resume", verifyAuthToken, async (req, res) => {
   try {
     const { gameId } = req.body;
 
@@ -1480,7 +1480,7 @@ router.post("/resume", verifyFirebaseToken, async (req, res) => {
 // @route   DELETE /api/games/saved/:gameId
 // @desc    Delete a saved game
 // @access  Private
-router.delete("/saved/:gameId", verifyFirebaseToken, async (req, res) => {
+router.delete("/saved/:gameId", verifyAuthToken, async (req, res) => {
   try {
     const game = await Game.findById(req.params.gameId);
 
@@ -1504,7 +1504,7 @@ router.delete("/saved/:gameId", verifyFirebaseToken, async (req, res) => {
 // @route   POST /api/games/property/buy
 // @desc    Buy a property (add to player's properties)
 // @access  Private
-router.post("/property/buy", verifyFirebaseToken, async (req, res) => {
+router.post("/property/buy", verifyAuthToken, async (req, res) => {
   try {
     const { gameId, propertyName, colorGroup, price } = req.body;
 
@@ -1545,7 +1545,7 @@ router.post("/property/buy", verifyFirebaseToken, async (req, res) => {
 // @route   POST /api/games/property/sell
 // @desc    Sell a property (remove from player's properties)
 // @access  Private
-router.post("/property/sell", verifyFirebaseToken, async (req, res) => {
+router.post("/property/sell", verifyAuthToken, async (req, res) => {
   try {
     const { gameId, propertyName } = req.body;
 
@@ -1577,7 +1577,7 @@ router.post("/property/sell", verifyFirebaseToken, async (req, res) => {
 // @route   POST /api/games/property/house
 // @desc    Add/remove house on a property
 // @access  Private
-router.post("/property/house", verifyFirebaseToken, async (req, res) => {
+router.post("/property/house", verifyAuthToken, async (req, res) => {
   try {
     const { gameId, propertyName, action, cost } = req.body;
 
@@ -1658,7 +1658,7 @@ router.post("/property/house", verifyFirebaseToken, async (req, res) => {
 // @route   POST /api/games/property/mortgage
 // @desc    Mortgage or unmortgage a property
 // @access  Private
-router.post("/property/mortgage", verifyFirebaseToken, async (req, res) => {
+router.post("/property/mortgage", verifyAuthToken, async (req, res) => {
   try {
     const { gameId, propertyName, action, value } = req.body;
 

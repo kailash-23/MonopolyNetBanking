@@ -1,6 +1,6 @@
 import express from 'express';
 import User from '../models/User.js';
-import { verifyFirebaseToken } from '../middleware/verifyFirebaseToken.js';
+import { verifyAuthToken } from '../middleware/verifyAuthToken.js';
 
 const router = express.Router();
 
@@ -22,7 +22,7 @@ const getPopulatedFriendsData = async (userId) => {
 };
 
 // Get friends list
-router.get('/list', verifyFirebaseToken, async (req, res) => {
+router.get('/list', verifyAuthToken, async (req, res) => {
   try {
     const data = await getPopulatedFriendsData(req.userId);
 
@@ -38,7 +38,7 @@ router.get('/list', verifyFirebaseToken, async (req, res) => {
 });
 
 // Search users by UID or username — parallel queries with Set-based lookups
-router.get('/search', verifyFirebaseToken, async (req, res) => {
+router.get('/search', verifyAuthToken, async (req, res) => {
   try {
     const { query } = req.query;
     
@@ -94,7 +94,7 @@ router.get('/search', verifyFirebaseToken, async (req, res) => {
 });
 
 // Send friend request — returns updated sent list so client skips refetch
-router.post('/request', verifyFirebaseToken, async (req, res) => {
+router.post('/request', verifyAuthToken, async (req, res) => {
   try {
     const { targetUserId } = req.body;
     const userId = req.userId;
@@ -150,7 +150,7 @@ router.post('/request', verifyFirebaseToken, async (req, res) => {
 });
 
 // Accept friend request — returns full updated data
-router.post('/accept', verifyFirebaseToken, async (req, res) => {
+router.post('/accept', verifyAuthToken, async (req, res) => {
   try {
     const { requesterId } = req.body;
     const userId = req.userId;
@@ -202,7 +202,7 @@ router.post('/accept', verifyFirebaseToken, async (req, res) => {
 });
 
 // Reject friend request — returns updated received list
-router.post('/reject', verifyFirebaseToken, async (req, res) => {
+router.post('/reject', verifyAuthToken, async (req, res) => {
   try {
     const { requesterId } = req.body;
     const userId = req.userId;
@@ -248,7 +248,7 @@ router.post('/reject', verifyFirebaseToken, async (req, res) => {
 });
 
 // Cancel sent friend request — returns updated sent list
-router.post('/cancel', verifyFirebaseToken, async (req, res) => {
+router.post('/cancel', verifyAuthToken, async (req, res) => {
   try {
     const { targetUserId } = req.body;
     const userId = req.userId;
@@ -294,7 +294,7 @@ router.post('/cancel', verifyFirebaseToken, async (req, res) => {
 });
 
 // Remove friend — returns updated friends list
-router.post('/remove', verifyFirebaseToken, async (req, res) => {
+router.post('/remove', verifyAuthToken, async (req, res) => {
   try {
     const { friendId } = req.body;
     const userId = req.userId;
@@ -332,7 +332,7 @@ router.post('/remove', verifyFirebaseToken, async (req, res) => {
 });
 
 // Send game invite to a friend
-router.post('/invite-to-game', verifyFirebaseToken, async (req, res) => {
+router.post('/invite-to-game', verifyAuthToken, async (req, res) => {
   try {
     const { targetUserId, gameId, gameCode, gameName } = req.body;
 
@@ -378,7 +378,7 @@ router.post('/invite-to-game', verifyFirebaseToken, async (req, res) => {
 });
 
 // Get game invites
-router.get('/game-invites', verifyFirebaseToken, async (req, res) => {
+router.get('/game-invites', verifyAuthToken, async (req, res) => {
   try {
     const user = await User.findById(req.userId)
       .select('gameInvites')
@@ -396,7 +396,7 @@ router.get('/game-invites', verifyFirebaseToken, async (req, res) => {
 });
 
 // Dismiss game invite — atomic pull, no full doc load
-router.post('/dismiss-invite', verifyFirebaseToken, async (req, res) => {
+router.post('/dismiss-invite', verifyAuthToken, async (req, res) => {
   try {
     const { inviteId } = req.body;
 

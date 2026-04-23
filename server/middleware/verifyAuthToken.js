@@ -56,5 +56,4 @@ export const verifyAuthToken = async (req, res, next) => {
   }
 };
 
-// Backward compatibility export for existing route imports.
-export const verifyFirebaseToken = verifyAuthToken;
+export default verifyAuthToken;

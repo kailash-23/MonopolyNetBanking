@@ -31,8 +31,7 @@ export async function authFetch(url, options = {}) {
     const isAuthEndpoint =
       url.includes("/api/auth/signin") ||
       url.includes("/api/auth/signup") ||
-      url.includes("/api/auth/oauth/") ||
-      url.includes("/api/auth/sync");
+      url.includes("/api/auth/oauth/");
 
     if (!isAuthEndpoint) {
       handleSessionExpired();

@@ -125,27 +125,16 @@ src/
 
 ## Backend Integration
 
-The `authService.js` file contains stub implementations that can be easily replaced with actual API calls. Each method includes TODO comments showing how to integrate with a real backend.
+Frontend API services are already wired to the Express backend.
 
-Example:
-```javascript
-// Current mock implementation
-async signIn({ username, password }) {
-  await simulateDelay();
-  // Mock logic...
-}
+Primary authentication endpoints in use:
+- `POST /api/auth/signup`
+- `POST /api/auth/signin`
+- `GET /api/auth/me`
+- `POST /api/auth/password-reset`
+- `POST /api/auth/reset-password`
 
-// Replace with:
-async signIn({ username, password }) {
-  const response = await fetch('/api/auth/signin', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
-  });
-  if (!response.ok) throw new Error('Authentication failed');
-  return response.json();
-}
-```
+Game and friends pages also call backend APIs directly through service modules in `src/services`.
 
 ## Contributing
 

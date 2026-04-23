@@ -7,14 +7,6 @@ const USERNAME_MAX_LENGTH = 20;
 export const normalizeEmail = (value) =>
   typeof value === "string" ? value.trim().toLowerCase() : undefined;
 
-export const deriveAuthProvider = (firebaseUser) => {
-  const providerId = firebaseUser?.firebase?.sign_in_provider || firebaseUser?.sign_in_provider;
-  if (!providerId) return "local";
-  if (providerId.includes("google")) return "google";
-  if (providerId.includes("apple")) return "apple";
-  return "local";
-};
-
 const sanitizeUsername = (value) =>
   typeof value === "string"
     ? value.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, USERNAME_MAX_LENGTH)

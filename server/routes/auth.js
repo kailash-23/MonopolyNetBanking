@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import passport from "passport";
 import User from "../models/User.js";
-import { verifyFirebaseToken } from "../middleware/verifyFirebaseToken.js";
+import { verifyAuthToken } from "../middleware/verifyAuthToken.js";
 import { generateUsername, normalizeEmail } from "../utils/userProfile.js";
 import { generateResetToken, hashToken, sendPasswordResetEmail } from "../config/email.js";
 
@@ -191,13 +191,7 @@ router.get(
   }
 );
 
-router.post("/sync", (_req, res) => {
-  return res.status(410).json({
-    message: "Legacy sync has been removed. Use /api/auth/signup or /api/auth/signin.",
-  });
-});
-
-router.get("/me", verifyFirebaseToken, (req, res) => {
+router.get("/me", verifyAuthToken, (req, res) => {
   if (!req.user) {
     return res.status(404).json({ message: "User not found" });
   }
@@ -205,7 +199,7 @@ router.get("/me", verifyFirebaseToken, (req, res) => {
   res.json({ user: req.user.toJSON() });
 });
 
-router.post("/complete-profile", verifyFirebaseToken, async (req, res) => {
+router.post("/complete-profile", verifyAuthToken, async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ message: "Not authorized" });
@@ -265,7 +259,7 @@ router.post("/check-username", async (req, res) => {
   }
 });
 
-router.put("/profile", verifyFirebaseToken, async (req, res) => {
+router.put("/profile", verifyAuthToken, async (req, res) => {
   try {
     const user = req.user;
     if (!user) {
@@ -315,7 +309,7 @@ router.put("/profile", verifyFirebaseToken, async (req, res) => {
   }
 });
 
-router.put("/settings", verifyFirebaseToken, async (req, res) => {
+router.put("/settings", verifyAuthToken, async (req, res) => {
   try {
     const user = req.user;
     if (!user) {
@@ -340,7 +334,7 @@ router.put("/settings", verifyFirebaseToken, async (req, res) => {
   }
 });
 
-router.get("/stats", verifyFirebaseToken, (req, res) => {
+router.get("/stats", verifyAuthToken, (req, res) => {
   try {
     const user = req.user;
     if (!user) {
