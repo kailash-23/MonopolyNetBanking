@@ -113,6 +113,8 @@ function GameSession() {
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [hasPendingGoRequest, setHasPendingGoRequest] = useState(false);
   const [hasPendingBankRequest, setHasPendingBankRequest] = useState(false);
+  const [jumpNotice, setJumpNotice] = useState('');
+  const jumpNoticeTimerRef = useRef(null);
 
   const [showIdleWarning, setShowIdleWarning] = useState(false);
   const [idleTimeRemaining, setIdleTimeRemaining] = useState(null);
@@ -352,6 +354,23 @@ function GameSession() {
       setHasPendingGoRequest(true); if (data.pendingApprovals) setPendingApprovals(data.pendingApprovals);
     } catch (err) { setError(err.message); }
   }, [gameId, hasPendingGoRequest]);
+
+  const handleJump = useCallback(async () => {
+    try {
+      soundService.playClick();
+      const data = await gameService.jump(gameId);
+      if (data.players) setGame(prev => ({ ...prev, players: data.players }));
+      const landedName = data.landedProperty?.name || 'a property';
+      const goNote = data.passedGo ? ' and did not collect GO salary' : '';
+      setJumpNotice(`Jumped ${data.jumpDistance} spaces for £${data.jumpFee} to ${landedName}${data.stationRent ? ` and paid £${data.stationRent}` : ''}${goNote}`);
+      if (jumpNoticeTimerRef.current) window.clearTimeout(jumpNoticeTimerRef.current);
+      jumpNoticeTimerRef.current = window.setTimeout(() => setJumpNotice(''), 3500);
+      soundService.playSuccess();
+    } catch (err) {
+      setError(err.message);
+      refreshInBackground();
+    }
+  }, [gameId, refreshInBackground]);
 
   const handleApproveRequest = useCallback(async (requestId, approved) => {
     try { soundService.playClick();
@@ -717,6 +736,16 @@ function GameSession() {
               <span className="qa-label">{hasPendingGoRequest ? 'Pending...' : 'Collect GO'}</span>
               <span className="qa-amount">+£{game?.goSalary || 200}</span>
             </button>
+            <button className="quick-action jump" onClick={handleJump}>
+              <div className="qa-icon bank-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 7h7l-2 4h3l-2 6h-5l2-5H4z" />
+                  <path d="M16 5l4 4-4 4" />
+                </svg>
+              </div>
+              <span className="qa-label">Jump</span>
+              <span className="qa-amount">1-6 spaces</span>
+            </button>
             <button className="quick-action bank" onClick={() => { soundService.playClick(); setAmount('-'); setShowBankModal(true); }}>
               <div className="qa-icon bank-icon">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -726,6 +755,8 @@ function GameSession() {
               <span className="qa-label">Bank</span>
             </button>
           </div>
+
+          {jumpNotice && <div className="jump-notice">{jumpNotice}</div>}
 
           {/* Pending Approvals */}
           {pendingApprovals.filter(r => (r.approver?._id || r.approver) === user._id).length > 0 && (

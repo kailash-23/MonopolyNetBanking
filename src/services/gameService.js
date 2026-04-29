@@ -387,3 +387,69 @@ export const mortgageProperty = async (gameId, propertyName, action, value) => {
   }
   return data;
 };
+
+export const startAuction = async (gameId, propertyName, blind = false) => {
+  const response = await authFetch(`${API_URL}/auction/start`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId, propertyName, blind }),
+  });
+  const data = await parseResponse(response);
+  if (!response.ok) throw new Error(data.message || 'Failed to start auction');
+  return data;
+};
+
+export const placeAuctionBid = async (gameId, amount) => {
+  const response = await authFetch(`${API_URL}/auction/bid`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId, amount }),
+  });
+  const data = await parseResponse(response);
+  if (!response.ok) throw new Error(data.message || 'Failed to place bid');
+  return data;
+};
+
+export const endAuction = async (gameId) => {
+  const response = await authFetch(`${API_URL}/auction/end`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId }),
+  });
+  const data = await parseResponse(response);
+  if (!response.ok) throw new Error(data.message || 'Failed to end auction');
+  return data;
+};
+
+export const payTax = async (gameId, playerId) => {
+  const response = await authFetch(`${API_URL}/tax`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId, playerId }),
+  });
+  const data = await parseResponse(response);
+  if (!response.ok) throw new Error(data.message || 'Failed to apply tax');
+  return data;
+};
+
+export const payUtility = async (gameId, landingPlayerId, propertyName, diceRoll) => {
+  const response = await authFetch(`${API_URL}/utility/pay`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId, landingPlayerId, propertyName, diceRoll }),
+  });
+  const data = await parseResponse(response);
+  if (!response.ok) throw new Error(data.message || 'Failed to pay utility rent');
+  return data;
+};
+
+export const jump = async (gameId) => {
+  const response = await authFetch(`${API_URL}/jump`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ gameId }),
+  });
+  const data = await parseResponse(response);
+  if (!response.ok) throw new Error(data.message || 'Failed to jump');
+  return data;
+};

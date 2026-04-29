@@ -45,6 +45,12 @@ const playerSchema = new mongoose.Schema({
     houses: { type: Number, default: 0, min: 0, max: 5 },
     mortgaged: { type: Boolean, default: false },
   }],
+  boardPosition: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 39,
+  },
   joinedAt: {
     type: Date,
     default: Date.now,
@@ -200,6 +206,20 @@ const gameSchema = new mongoose.Schema(
       balance: Number,
       color: String,
     }],
+    // Current auction state (if any)
+    currentAuction: {
+      propertyName: { type: String },
+      startedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      blind: { type: Boolean, default: false },
+      bids: [{
+        player: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        amount: { type: Number },
+        placedAt: { type: Date, default: Date.now },
+      }],
+      startedAt: { type: Date },
+      endsAt: { type: Date },
+      resolved: { type: Boolean, default: false },
+    },
   },
   {
     timestamps: true,

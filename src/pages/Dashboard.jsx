@@ -179,6 +179,7 @@ function Dashboard() {
         name: finalGameName,
         maxPlayers,
         startingBalance,
+        settings: { edition: selectedEdition, creativeMode: selectedEdition === 'creative' },
       });
       
       setShowHostModal(false);

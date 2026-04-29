@@ -37,6 +37,10 @@ const PROPERTY_CATALOG = [
   { name: "Water Works", colorGroup: "utility", price: 150, houseCost: 0 },
 ];
 
+const BOARD_ORDER = PROPERTY_CATALOG.map((property) => property.name);
+const STATION_BOARD_POSITIONS = [5, 15, 25, 35];
+const STATION_RENTS = [25, 50, 100, 200];
+
 const PROPERTY_BY_NAME = new Map(PROPERTY_CATALOG.map((property) => [property.name, property]));
 
 const canDevelopColorGroup = (colorGroup) => !["station", "utility"].includes(colorGroup);
@@ -47,6 +51,54 @@ const hasFullColorSet = (playerProperties, colorGroup) => {
     return false;
   }
   return groupProps.every((property) => playerProperties.some((owned) => owned.name === property.name));
+};
+
+const getNearestStationRent = (boardPosition, stationCount) => {
+  if (!stationCount) {
+    return 0;
+  }
+
+  const normalizedPosition = ((boardPosition % BOARD_ORDER.length) + BOARD_ORDER.length) % BOARD_ORDER.length;
+  let nearestDistance = Infinity;
+
+  STATION_BOARD_POSITIONS.forEach((stationPosition, index) => {
+    const forwardDistance = (stationPosition - normalizedPosition + BOARD_ORDER.length) % BOARD_ORDER.length;
+    const backwardDistance = (normalizedPosition - stationPosition + BOARD_ORDER.length) % BOARD_ORDER.length;
+    const distance = Math.min(forwardDistance, backwardDistance);
+
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+    }
+  });
+
+  return STATION_RENTS[Math.max(0, Math.min(stationCount, 4)) - 1] || STATION_RENTS[0];
+};
+
+const getStationOwner = (game, boardPosition) => {
+  const nearestStationIndex = STATION_BOARD_POSITIONS.reduce((closestIndex, stationPosition, index) => {
+    const closestPosition = STATION_BOARD_POSITIONS[closestIndex];
+    const normalizedPosition = ((boardPosition % BOARD_ORDER.length) + BOARD_ORDER.length) % BOARD_ORDER.length;
+    const currentDistance = Math.min(
+      (stationPosition - normalizedPosition + BOARD_ORDER.length) % BOARD_ORDER.length,
+      (normalizedPosition - stationPosition + BOARD_ORDER.length) % BOARD_ORDER.length,
+    );
+    const closestDistance = Math.min(
+      (closestPosition - normalizedPosition + BOARD_ORDER.length) % BOARD_ORDER.length,
+      (normalizedPosition - closestPosition + BOARD_ORDER.length) % BOARD_ORDER.length,
+    );
+    return currentDistance < closestDistance ? index : closestIndex;
+  }, 0);
+
+  const nearestStationName = BOARD_ORDER[STATION_BOARD_POSITIONS[nearestStationIndex]];
+  const owner = game.players.find((player) =>
+    (player.properties || []).some((property) => property.name === nearestStationName)
+  );
+
+  return {
+    owner,
+    nearestStationName,
+    nearestStationIndex,
+  };
 };
 
 const isTransientTransactionError = (error) => {
@@ -1695,6 +1747,273 @@ router.post("/property/mortgage", verifyAuthToken, async (req, res) => {
   } catch (error) {
     console.error("Mortgage operation error:", error);
     res.status(500).json({ message: "Error with mortgage operation", error: error.message });
+  }
+});
+
+// @route   POST /api/games/auction/start
+// @desc    Start an auction for a property (blind auctions supported)
+// @access  Private
+router.post('/auction/start', verifyAuthToken, async (req, res) => {
+  try {
+    const { gameId, propertyName, blind } = req.body;
+    const game = await Game.findById(gameId);
+    if (!game) return res.status(404).json({ message: 'Game not found' });
+    if (game.status !== 'in_progress') return res.status(400).json({ message: 'Game is not in progress' });
+
+    // Ensure property isn't already owned
+    const alreadyOwned = game.players.some(p => p.properties?.some(prop => prop.name === propertyName));
+    if (alreadyOwned) return res.status(400).json({ message: 'Property is already owned' });
+
+    if (game.currentAuction && game.currentAuction.startedAt && !game.currentAuction.resolved) {
+      return res.status(400).json({ message: 'Another auction is already in progress' });
+    }
+
+    const now = new Date();
+    const endsAt = new Date(now.getTime() + 60 * 1000); // 1 minute
+
+    game.currentAuction = {
+      propertyName,
+      startedBy: req.user._id,
+      blind: (blind === true) || (game.settings && game.settings.creativeMode === true),
+      bids: [],
+      startedAt: now,
+      endsAt,
+      resolved: false,
+    };
+
+    game.lastActivity = now;
+    await game.save();
+    await game.populate('players.user', 'username displayName avatar uid');
+
+    res.json({ message: 'Auction started', currentAuction: { propertyName, startedAt: now, endsAt, blind: game.currentAuction.blind } });
+  } catch (error) {
+    console.error('Start auction error:', error);
+    res.status(500).json({ message: 'Error starting auction', error: error.message });
+  }
+});
+
+// @route   POST /api/games/auction/bid
+// @desc    Place a bid on the current auction (no balance changes until resolution)
+// @access  Private
+router.post('/auction/bid', verifyAuthToken, async (req, res) => {
+  try {
+    const { gameId, amount } = req.body;
+    if (!amount || amount <= 0) return res.status(400).json({ message: 'Invalid bid amount' });
+
+    const game = await Game.findById(gameId);
+    if (!game) return res.status(404).json({ message: 'Game not found' });
+    if (!game.currentAuction || !game.currentAuction.startedAt || game.currentAuction.resolved) return res.status(400).json({ message: 'No active auction' });
+
+    const now = new Date();
+    if (new Date(game.currentAuction.endsAt) <= now) return res.status(400).json({ message: 'Auction has ended' });
+
+    // Record bid (blind auctions: stored server-side)
+    game.currentAuction.bids.push({ player: req.user._id, amount, placedAt: now });
+    game.lastActivity = now;
+    await game.save();
+
+    // Return only bid count when blind
+    const response = { message: 'Bid placed', bidsCount: game.currentAuction.bids.length };
+    res.json(response);
+  } catch (error) {
+    console.error('Place bid error:', error);
+    res.status(500).json({ message: 'Error placing bid', error: error.message });
+  }
+});
+
+// @route   POST /api/games/auction/end
+// @desc    End the active auction early (host or auction starter)
+// @access  Private
+router.post('/auction/end', verifyAuthToken, async (req, res) => {
+  try {
+    const { gameId } = req.body;
+    const game = await Game.findById(gameId);
+    if (!game) return res.status(404).json({ message: 'Game not found' });
+    if (!game.currentAuction || !game.currentAuction.startedAt || game.currentAuction.resolved) return res.status(400).json({ message: 'No active auction' });
+
+    const isHost = String(game.host) === String(req.user._id);
+    const isStarter = String(game.currentAuction.startedBy) === String(req.user._id);
+    if (!isHost && !isStarter) return res.status(403).json({ message: 'Only host or auction starter can end the auction early' });
+
+    // Set endsAt to now so next fetch will resolve it
+    game.currentAuction.endsAt = new Date();
+    game.lastActivity = new Date();
+    await game.save();
+
+    res.json({ message: 'Auction will be resolved shortly' });
+  } catch (error) {
+    console.error('End auction error:', error);
+    res.status(500).json({ message: 'Error ending auction', error: error.message });
+  }
+});
+
+// @route   POST /api/games/tax
+// @desc    Charge a player tax based on owned properties, houses and hotels
+// @access  Private
+router.post('/tax', verifyAuthToken, async (req, res) => {
+  try {
+    const { gameId, playerId } = req.body;
+    const game = await Game.findById(gameId);
+    if (!game) return res.status(404).json({ message: 'Game not found' });
+    if (game.status !== 'in_progress') return res.status(400).json({ message: 'Game is not in progress' });
+
+    const player = game.players.find(p => String(p.user._id || p.user) === String(playerId || req.user._id));
+    if (!player) return res.status(400).json({ message: 'Player not found in game' });
+
+    // Tax rules (configurable later): £20 per property, £25 per house, £100 per hotel (hotel = 5 houses)
+    const perProperty = 20;
+    const perHouse = 25;
+    const perHotel = 100;
+
+    let propertiesCount = (player.properties || []).length;
+    let housesCount = 0;
+    let hotelsCount = 0;
+    (player.properties || []).forEach(prop => {
+      if (prop.houses >= 5) hotelsCount += 1;
+      else housesCount += (prop.houses || 0);
+    });
+
+    const taxAmount = (propertiesCount * perProperty) + (housesCount * perHouse) + (hotelsCount * perHotel);
+
+    if (taxAmount > 0) {
+      if ((player.balance || 0) < taxAmount) return res.status(400).json({ message: 'Player has insufficient funds to pay tax' });
+      player.balance -= taxAmount;
+      game.recordTransaction(player.user, null, taxAmount, 'tax', `Property tax: ${propertiesCount} properties, ${housesCount} houses, ${hotelsCount} hotels`);
+      game.lastActivity = new Date();
+      await game.save();
+    }
+
+    await game.populate('players.user', 'username displayName avatar uid');
+    res.json({ message: 'Tax applied', taxAmount, players: game.players });
+  } catch (error) {
+    console.error('Tax error:', error);
+    res.status(500).json({ message: 'Error applying tax', error: error.message });
+  }
+});
+
+// @route   POST /api/games/utility/pay
+// @desc    Pay utility rent based on dice roll and number of utilities owned
+// @access  Private
+router.post('/utility/pay', verifyAuthToken, async (req, res) => {
+  try {
+    const { gameId, landingPlayerId, propertyName, diceRoll } = req.body;
+    if (!diceRoll || diceRoll <= 0) return res.status(400).json({ message: 'Invalid dice roll' });
+
+    const game = await Game.findById(gameId);
+    if (!game) return res.status(404).json({ message: 'Game not found' });
+    if (game.status !== 'in_progress') return res.status(400).json({ message: 'Game is not in progress' });
+
+    const owner = game.players.find(p => p.properties?.some(prop => prop.name === propertyName));
+    if (!owner) return res.status(400).json({ message: 'Utility has no owner' });
+
+    // Determine number of utilities owned by owner
+    const utilityCount = (owner.properties || []).filter(prop => prop.colorGroup === 'utility').length;
+    const multiplier = utilityCount === 2 ? 10 : 4;
+    const amount = multiplier * diceRoll;
+
+    const payer = game.players.find(p => String(p.user._id || p.user) === String(landingPlayerId || req.user._id));
+    if (!payer) return res.status(400).json({ message: 'Landing player not found in game' });
+    if ((payer.balance || 0) < amount) return res.status(400).json({ message: 'Payer has insufficient funds' });
+
+    payer.balance -= amount;
+    owner.balance += amount;
+    game.recordTransaction(payer.user, owner.user, amount, 'rent', `Utility rent for ${propertyName} (dice ${diceRoll} x ${multiplier})`);
+    game.lastActivity = new Date();
+    await game.save();
+
+    await game.populate('players.user', 'username displayName avatar uid');
+    res.json({ message: 'Utility rent paid', amount, players: game.players });
+  } catch (error) {
+    console.error('Utility pay error:', error);
+    res.status(500).json({ message: 'Error processing utility payment', error: error.message });
+  }
+});
+
+// @route   POST /api/games/jump
+// @desc    Jump a random 1-6 spaces and pay the nearest station owner
+// @access  Private
+router.post('/jump', verifyAuthToken, async (req, res) => {
+  try {
+    const { gameId } = req.body;
+    const game = await Game.findById(gameId);
+    if (!game) return res.status(404).json({ message: 'Game not found' });
+    if (game.status !== 'in_progress') return res.status(400).json({ message: 'Game is not in progress' });
+
+    const player = game.players.find((p) => String(p.user._id || p.user) === String(req.user._id));
+    if (!player) return res.status(400).json({ message: 'You are not in this game' });
+
+    const currentPosition = Number.isInteger(player.boardPosition) ? player.boardPosition : 0;
+    const jumpDistance = Math.floor(Math.random() * 6) + 1;
+    const newPosition = (currentPosition + jumpDistance) % BOARD_ORDER.length;
+    const landedPropertyName = BOARD_ORDER[newPosition];
+    const landedProperty = PROPERTY_BY_NAME.get(landedPropertyName);
+    const passedGo = currentPosition + jumpDistance >= BOARD_ORDER.length;
+    const jumpFee = jumpDistance * 10;
+
+    if ((player.balance || 0) < jumpFee) {
+      return res.status(400).json({ message: 'Insufficient balance to jump' });
+    }
+
+    player.balance -= jumpFee;
+    game.recordTransaction(
+      player.user,
+      null,
+      jumpFee,
+      'bank_pay',
+      `Jumped ${jumpDistance} spaces for a distance fee of £${jumpFee}${passedGo ? ' without collecting GO salary' : ''}`
+    );
+
+    const stationOwnerInfo = getStationOwner(game, newPosition);
+    const stationCount = stationOwnerInfo.owner
+      ? (stationOwnerInfo.owner.properties || []).filter((property) => property.colorGroup === 'station').length
+      : 0;
+    const rentAmount = stationOwnerInfo.owner ? getNearestStationRent(newPosition, stationCount) : 0;
+
+    if (stationOwnerInfo.owner && rentAmount > 0) {
+      if ((player.balance || 0) < rentAmount) {
+        return res.status(400).json({ message: 'Insufficient balance to jump' });
+      }
+
+      player.balance -= rentAmount;
+      stationOwnerInfo.owner.balance += rentAmount;
+      game.recordTransaction(
+        player.user,
+        stationOwnerInfo.owner.user,
+        rentAmount,
+        'rent',
+        `Jumped ${jumpDistance} spaces to ${landedPropertyName} and paid station rent to the nearest station owner`
+      );
+    } else {
+      game.recordTransaction(
+        player.user,
+        null,
+        0,
+        'bank_pay',
+        `Jumped ${jumpDistance} spaces to ${landedPropertyName} with no station owner charge${passedGo ? ' and no GO salary was awarded' : ''}`
+      );
+    }
+
+    player.boardPosition = newPosition;
+    game.lastActivity = new Date();
+    game.markModified('players');
+    await game.save();
+    await game.populate('players.user', 'username displayName avatar uid');
+
+    res.json({
+      message: 'Jump completed',
+      jumpDistance,
+      jumpFee,
+      passedGo,
+      landedProperty: {
+        name: landedPropertyName,
+        colorGroup: landedProperty?.colorGroup || 'unknown',
+      },
+      stationRent: rentAmount,
+      players: game.players,
+    });
+  } catch (error) {
+    console.error('Jump error:', error);
+    res.status(500).json({ message: 'Error processing jump', error: error.message });
   }
 });
 
