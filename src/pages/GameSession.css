@@ -110,10 +110,11 @@
   z-index: 1;
   margin: 16px 16px 0;
   padding: 20px;
-  background: linear-gradient(135deg, #2d2d3a 0%, #3a3a4a 100%);
+  background: linear-gradient(135deg, #2d2d3a 0%, #3a3a4a 100%) !important;
   border-radius: 20px;
-  color: white;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12) !important;
 }
 .balance-header {
   display: flex;
